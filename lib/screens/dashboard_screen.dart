@@ -6,11 +6,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../models/candidate.dart';
 import '../services/ai_service.dart';
+import '../services/license_service.dart';
 import '../widgets/candidate_card.dart';
 import 'candidate_pool_screen.dart';
 import 'pipeline_screen.dart';
 import 'reports_screen.dart';
 import 'onboarding_screen.dart';
+import 'license_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, String> apiKeys;
@@ -172,6 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       
       setState(() => _candidates = results);
+      
     } catch (e) {
       setState(() => _errorMsg = e.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -293,6 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
+                
                 const SizedBox(width: 12),
                 // Avatar
                 Container(
