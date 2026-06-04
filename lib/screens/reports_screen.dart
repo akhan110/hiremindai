@@ -4,20 +4,48 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/candidate.dart';
 
-class ReportsScreen extends StatelessWidget {
+class ReportsScreen extends StatefulWidget {
   final List<Candidate> candidates;
 
   const ReportsScreen({super.key, required this.candidates});
 
+  @override
+  State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
+  int _selectedTopCardIndex = 0;
+
   List<_ReportCandidate> get _items {
-    if (candidates.isEmpty) return _demoReportCandidates;
-    final mapped = candidates.map(_ReportCandidate.fromCandidate).toList();
+    if (widget.candidates.isEmpty) return [];
+    final mapped = widget.candidates.map(_ReportCandidate.fromCandidate).toList();
     mapped.sort((a, b) => b.score.compareTo(a.score));
     return mapped;
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.candidates.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.analytics_outlined, size: 64, color: Color(0xFF94A3B8)),
+            const SizedBox(height: 16),
+            Text(
+              'No reports available.',
+              style: GoogleFonts.inter(fontSize: 16, color: const Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Analyze candidates first to generate a hiring report.',
+              style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF94A3B8)),
+            ),
+          ],
+        ),
+      );
+    }
+
     final items = _items;
     final topThree = items.take(3).toList();
     final isWide = MediaQuery.of(context).size.width >= 980;
@@ -26,12 +54,9 @@ class ReportsScreen extends StatelessWidget {
       color: const Color(0xFFF8FAFC),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(28, 26, 28, 36),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1130),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
                 _buildHeader(context, items.length),
                 const SizedBox(height: 28),
                 _SectionTitle(
@@ -51,10 +76,17 @@ class ReportsScreen extends StatelessWidget {
                                 right:
                                     entry.key == topThree.length - 1 ? 0 : 20,
                               ),
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedTopCardIndex = entry.key;
+                                });
+                              },
                               child: _TopCandidateCard(
                                 candidate: entry.value,
-                                highlighted: entry.key == 0,
+                                highlighted: entry.key == _selectedTopCardIndex,
                               ),
+                            ),
                             ),
                           ),
                         )
@@ -68,9 +100,16 @@ class ReportsScreen extends StatelessWidget {
                         .map(
                           (entry) => Padding(
                             padding: const EdgeInsets.only(bottom: 14),
-                            child: _TopCandidateCard(
-                              candidate: entry.value,
-                              highlighted: entry.key == 0,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedTopCardIndex = entry.key;
+                                });
+                              },
+                              child: _TopCandidateCard(
+                                candidate: entry.value,
+                                highlighted: entry.key == _selectedTopCardIndex,
+                              ),
                             ),
                           ),
                         )
@@ -85,9 +124,7 @@ class ReportsScreen extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
+        );
   }
 
   Widget _buildHeader(BuildContext context, int count) {
@@ -124,20 +161,34 @@ class ReportsScreen extends StatelessWidget {
               icon: Icons.picture_as_pdf_outlined,
               label: 'Download Detailed PDF',
               filled: false,
-              onTap: () {},
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Generating PDF report...'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
             ),
             const SizedBox(width: 12),
             _HeaderButton(
               icon: Icons.upload_file_outlined,
               label: 'Export to ATS',
               filled: true,
-              onTap: () {},
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Exporting data to ATS integration...'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
             ),
           ],
         ),
         const SizedBox(height: 20),
         Text(
-          'Based on ${count < 58 ? 58 : count} total applicants',
+          'Based on ${widget.candidates.length} total applicants',
           style: GoogleFonts.inter(
             fontSize: 11,
             fontWeight: FontWeight.w500,
@@ -219,7 +270,7 @@ class ReportsScreen extends StatelessWidget {
     return Row(
       children: [
         Text(
-          '© 2024 HireMind AI. All rights reserved.',
+          '© 2026 HireMind AI. All rights reserved.',
           style:
               GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
         ),
@@ -307,7 +358,6 @@ class _TopCandidateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 188,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -388,7 +438,7 @@ class _TopCandidateCard extends StatelessWidget {
                   ),
                 ),
               ),
-          const Spacer(),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 32,
@@ -433,8 +483,8 @@ class _AnalysisTable extends StatelessWidget {
         children: [
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: 1080,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 56),
               child: DataTable(
                 headingRowHeight: 48,
                 dataRowMinHeight: 58,
@@ -458,7 +508,6 @@ class _AnalysisTable extends StatelessWidget {
                   DataColumn(label: Text('MATCH SCORE')),
                   DataColumn(label: Text('KEY STRENGTHS')),
                   DataColumn(label: Text('POTENTIAL GAPS')),
-                  DataColumn(label: Text('ACTION')),
                 ],
                 rows: candidates
                     .take(5)
@@ -493,21 +542,8 @@ class _AnalysisTable extends StatelessWidget {
                           DataCell(_ScorePill(
                               score: candidate.score,
                               color: candidate.scoreColor)),
-                          DataCell(Text(candidate.keyStrengths)),
-                          DataCell(Text(candidate.potentialGap)),
-                          DataCell(
-                            TextButton(
-                              onPressed: () {},
-                              child: Text(
-                                'Details',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1A56DB),
-                                ),
-                              ),
-                            ),
-                          ),
+                          DataCell(SizedBox(width: 200, child: Text(candidate.keyStrengths, maxLines: 2, overflow: TextOverflow.ellipsis))),
+                          DataCell(SizedBox(width: 200, child: Text(candidate.potentialGap, maxLines: 2, overflow: TextOverflow.ellipsis))),
                         ],
                       ),
                     )
@@ -524,7 +560,7 @@ class _AnalysisTable extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  'Showing 5 of ${candidates.length < 58 ? 58 : candidates.length} total analyzed candidates',
+                  'Showing 5 of ${candidates.length} total analyzed candidates',
                   style: GoogleFonts.inter(
                       fontSize: 12, color: const Color(0xFF64748B)),
                 ),

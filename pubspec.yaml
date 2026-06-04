@@ -19,6 +19,10 @@ dependencies:
   percent_indicator: ^4.2.3
   dotted_border: ^2.1.0
   syncfusion_flutter_pdf: ^25.1.41
+  url_launcher: ^6.3.2
+  open_filex: ^4.7.0
+  universal_html: ^2.3.0
+  font_awesome_flutter: ^10.9.1
 
 dev_dependencies:
   flutter_test:
@@ -27,3 +31,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/

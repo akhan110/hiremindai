@@ -3,13 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/candidate.dart';
 
-class CandidateCard extends StatelessWidget {
+class AgenticCandidateCard extends StatelessWidget {
   final Candidate candidate;
   final int index;
   final bool isExpanded;
   final VoidCallback onToggle;
 
-  const CandidateCard({
+  const AgenticCandidateCard({
     super.key,
     required this.candidate,
     required this.index,

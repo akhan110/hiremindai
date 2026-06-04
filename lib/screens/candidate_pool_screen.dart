@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:universal_html/html.dart' as html;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -6,8 +12,9 @@ import '../models/candidate.dart';
 
 class CandidatePoolScreen extends StatefulWidget {
   final List<Candidate> candidates;
+  final ValueChanged<Candidate> onCandidateUpdated;
 
-  const CandidatePoolScreen({super.key, required this.candidates});
+  const CandidatePoolScreen({super.key, required this.candidates, required this.onCandidateUpdated});
 
   @override
   State<CandidatePoolScreen> createState() => _CandidatePoolScreenState();
@@ -19,7 +26,7 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
 
   List<_PoolCandidate> get _items {
     final source = widget.candidates.isEmpty
-        ? _demoCandidates
+        ? <_PoolCandidate>[]
         : widget.candidates.map(_PoolCandidate.fromCandidate).toList();
 
     if (_query.trim().isEmpty) return source;
@@ -47,8 +54,28 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
     final selectedIndex = candidates.isEmpty
         ? 0
         : _selectedIndex.clamp(0, candidates.length - 1).toInt();
-    final selected =
-        candidates.isEmpty ? _demoCandidates.first : candidates[selectedIndex];
+    if (widget.candidates.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.folder_open, size: 64, color: Color(0xFF94A3B8)),
+            const SizedBox(height: 16),
+            Text(
+              'No candidates analyzed yet.',
+              style: GoogleFonts.inter(fontSize: 16, color: const Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Go to the Dashboard and analyze resumes to see them here.',
+              style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF94A3B8)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final selected = candidates[selectedIndex];
 
     return Stack(
       children: [
@@ -56,11 +83,8 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
           color: const Color(0xFFFCF8FF),
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(28, 26, 28, 56),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1160),
-                child: Column(
-                  children: [
+            child: Column(
+              children: [
                     _buildToolbar(),
                     const SizedBox(height: 26),
                     if (isWide)
@@ -87,19 +111,6 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
                 ),
               ),
             ),
-          ),
-        ),
-        Positioned(
-          right: 28,
-          bottom: 28,
-          child: FloatingActionButton(
-            onPressed: () {},
-            backgroundColor: const Color(0xFF075BC7),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            child: const Icon(Icons.add),
-          ),
-        ),
       ],
     );
   }
@@ -157,35 +168,12 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
           const _FilterPill(label: 'Status: All'),
           const SizedBox(width: 10),
           const _FilterPill(label: 'Score: High to Low'),
-          const SizedBox(width: 16),
-          SizedBox(
-            height: 44,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF075BC7),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-              ),
-              child: Text(
-                'Filter\nResults',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  height: 1.05,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
+
+
 
   Widget _buildCandidateList(List<_PoolCandidate> candidates) {
     if (candidates.isEmpty) {
@@ -274,17 +262,21 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
                       width: 150,
                       height: 44,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          candidate.original.isShortlisted = !candidate.original.isShortlisted;
+                          widget.onCandidateUpdated(candidate.original);
+                        },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF075BC7),
-                          foregroundColor: Colors.white,
+                          backgroundColor: candidate.original.isShortlisted ? Colors.white : const Color(0xFF075BC7),
+                          foregroundColor: candidate.original.isShortlisted ? const Color(0xFF075BC7) : Colors.white,
                           elevation: 0,
+                          side: BorderSide(color: const Color(0xFF075BC7), width: 1.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(7),
                           ),
                         ),
                         child: Text(
-                          'Schedule\nInterview',
+                          candidate.original.isShortlisted ? 'Shortlisted' : 'Shortlist',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.inter(
                             fontSize: 12,
@@ -294,28 +286,7 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: 150,
-                      height: 34,
-                      child: OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF111827),
-                          side: const BorderSide(color: Color(0xFF4B5F7D)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                        ),
-                        child: Text(
-                          'View Resume',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
+
                   ],
                 ),
               ],
@@ -329,45 +300,66 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
               children: [
                 const _SectionLabel('PROFESSIONAL LINKS'),
                 const SizedBox(height: 14),
-                const Row(
+                Row(
                   children: [
                     Expanded(
                       child: _ProfessionalLink(
                         icon: Icons.link,
                         label: 'LinkedIn',
+                        url: candidate.original.linkedin,
                       ),
                     ),
-                    SizedBox(width: 18),
+                    const SizedBox(width: 18),
                     Expanded(
                       child: _ProfessionalLink(
                         icon: Icons.code,
                         label: 'GitHub',
+                        url: candidate.original.github,
                       ),
                     ),
-                    SizedBox(width: 18),
+                    const SizedBox(width: 18),
                     Expanded(
                       child: _ProfessionalLink(
                         icon: Icons.language,
                         label: 'Portfolio',
+                        url: candidate.original.portfolio,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 28),
-                const _SectionLabel('EXPERIENCE'),
+                const _SectionLabel('AI EXECUTIVE SUMMARY'),
                 const SizedBox(height: 14),
-                _ExperienceItem(
-                  active: true,
-                  title: candidate.primaryExperienceTitle,
-                  company: '${candidate.company} • 2020 — Present',
-                  description: candidate.primaryExperienceDescription,
+                Text(
+                  candidate.summary,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: const Color(0xFF374151),
+                  ),
                 ),
-                _ExperienceItem(
-                  active: false,
-                  title: candidate.secondaryExperienceTitle,
-                  company: '${candidate.previousCompany} • 2017 — 2020',
-                  description: candidate.secondaryExperienceDescription,
-                  isLast: true,
+                const SizedBox(height: 24),
+                const _SectionLabel('CORE SKILLS'),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: candidate.skills.map((skill) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                    ),
+                    child: Text(
+                      skill,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1D4ED8),
+                      ),
+                    ),
+                  )).toList(),
                 ),
                 const SizedBox(height: 24),
                 _buildAnalysisPanel(candidate),
@@ -540,7 +532,7 @@ class _PoolCandidateCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    '${candidate.score} MATCH',
+                    '${candidate.score.toString().padLeft(2, '0')}% MATCH',
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
@@ -679,31 +671,53 @@ class _MetaText extends StatelessWidget {
 class _ProfessionalLink extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String url;
 
-  const _ProfessionalLink({required this.icon, required this.label});
+  const _ProfessionalLink({required this.icon, required this.label, required this.url});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    final bool hasUrl = url.trim().isNotEmpty;
+    return Tooltip(
+      message: hasUrl ? 'Copy $label Link: $url' : '$label link not available',
+      child: InkWell(
+        onTap: hasUrl
+            ? () {
+                Clipboard.setData(ClipboardData(text: url));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$label link copied to clipboard!'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            : null,
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: const Color(0xFFB9C6DA)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFF075BC7), size: 20),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: const Color(0xFF111827),
-            ),
+        child: Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: hasUrl ? Colors.white : const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: const Color(0xFFB9C6DA)),
           ),
-        ],
+          child: Row(
+            children: [
+              Icon(icon, color: hasUrl ? const Color(0xFF075BC7) : const Color(0xFF9CA3AF), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: hasUrl ? const Color(0xFF111827) : const Color(0xFF9CA3AF),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -910,6 +924,7 @@ class _PoolCandidate {
   final List<String> strengths;
   final List<String> gaps;
   final List<String> questions;
+  final Candidate original;
 
   const _PoolCandidate({
     required this.name,
@@ -931,25 +946,18 @@ class _PoolCandidate {
     required this.strengths,
     required this.gaps,
     required this.questions,
+    required this.original,
   });
 
   factory _PoolCandidate.fromCandidate(Candidate candidate) {
     final role = _roleFromSkills(candidate.skills);
-    final status = candidate.matchScore >= 90
-        ? 'SHORTLISTED'
-        : candidate.matchScore >= 80
-            ? 'NEW'
-            : candidate.matchScore >= 70
-                ? 'INTERVIEWED'
-                : 'REVIEW';
-    final statusColor = candidate.matchScore >= 90
+    final status = candidate.isShortlisted ? 'SHORTLISTED' : 'NEW';
+    final statusColor = candidate.isShortlisted
         ? const Color(0xFF075BC7)
-        : candidate.matchScore >= 80
-            ? const Color(0xFF059669)
-            : candidate.matchScore >= 70
-                ? const Color(0xFFEAB308)
-                : const Color(0xFF64748B);
-
+        : const Color(0xFF059669);
+    final expLabel = candidate.experience > 0
+        ? '${candidate.experience}+ Years Experience'
+        : 'Entry Level';
     return _PoolCandidate(
       name: candidate.name.isEmpty ? 'Candidate' : candidate.name,
       role: role,
@@ -960,13 +968,13 @@ class _PoolCandidate {
           ? 'Candidate profile generated from uploaded resume analysis.'
           : candidate.aiSummary,
       location: 'Remote / Hybrid',
-      email:
+      email: candidate.email.isNotEmpty ? candidate.email :
           '${candidate.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '.').replaceAll(RegExp(r'^\.|\.$'), '')}@example.com',
       experienceLabel: '${candidate.experience}+ Years Experience',
-      company: 'Current Company',
-      previousCompany: 'Previous Company',
-      primaryExperienceTitle: role,
-      secondaryExperienceTitle: 'Software Engineer',
+      company: candidate.company,
+      previousCompany: candidate.previousCompany,
+      primaryExperienceTitle: candidate.primaryExperienceTitle.isNotEmpty ? candidate.primaryExperienceTitle : role,
+      secondaryExperienceTitle: candidate.secondaryExperienceTitle.isNotEmpty ? candidate.secondaryExperienceTitle : 'Software Engineer',
       primaryExperienceDescription: candidate.strengths.isEmpty
           ? 'Built and maintained production applications while collaborating with product and engineering teams.'
           : candidate.strengths.take(2).join(' '),
@@ -992,6 +1000,7 @@ class _PoolCandidate {
               'Which technical tradeoff did you make recently and why?',
             ]
           : candidate.interviewQuestions,
+      original: candidate,
     );
   }
 
@@ -1031,142 +1040,4 @@ String _roleFromSkills(List<String> skills) {
   return 'Software Engineer';
 }
 
-const List<_PoolCandidate> _demoCandidates = [
-  _PoolCandidate(
-    name: 'Elena Rodriguez',
-    role: 'Senior Frontend Engineer',
-    score: 98,
-    status: 'SHORTLISTED',
-    statusColor: Color(0xFF075BC7),
-    summary:
-        'Expert in React and design systems. Led transition to micro-frontends at previous role. Strong UI/UX focus.',
-    location: 'San Francisco, CA',
-    email: 'elena.r@example.com',
-    experienceLabel: '8+ Years Experience',
-    company: 'TechFlow Solutions',
-    previousCompany: 'Global Nexus Corp',
-    primaryExperienceTitle: 'Lead Frontend Architect',
-    secondaryExperienceTitle: 'Senior UI Engineer',
-    primaryExperienceDescription:
-        'Scaled the frontend engineering team from 5 to 25. Orchestrated a migration from a monolith to a React-based micro-frontend architecture, improving deployment frequency by 40%.',
-    secondaryExperienceDescription:
-        'Developed a cross-platform design system used by 12 different product teams. Focused on accessibility and performance optimization.',
-    skills: ['React', 'Design Systems', 'Micro-frontends', 'UX'],
-    strengths: [
-      'Deep architectural knowledge of modern JS frameworks.',
-      'Proven leadership in hyper-growth environments.',
-      'Strong product sense and design-system execution.',
-    ],
-    gaps: [
-      'Experience with data heavy backend technologies.',
-      'Conflict resolution strategies within large engineering orgs.',
-      'Depth of direct cloud infrastructure ownership.',
-    ],
-    questions: [
-      'Can you describe a time you had to make a high-stakes architectural decision that was met with resistance from the team?',
-      'How do you balance the need for rapid feature delivery with the long-term maintenance of a design system?',
-    ],
-  ),
-  _PoolCandidate(
-    name: 'Marcus Chen',
-    role: 'Full Stack Developer',
-    score: 92,
-    status: 'INTERVIEWED',
-    statusColor: Color(0xFFEAB308),
-    summary:
-        'Solid experience with Node.js and AWS. Proven track record of scaling consumer-facing applications.',
-    location: 'Austin, TX',
-    email: 'marcus.c@example.com',
-    experienceLabel: '6+ Years Experience',
-    company: 'CloudBridge Labs',
-    previousCompany: 'Northstar Apps',
-    primaryExperienceTitle: 'Full Stack Developer',
-    secondaryExperienceTitle: 'Backend Engineer',
-    primaryExperienceDescription:
-        'Built scalable APIs and frontend features for high-traffic SaaS products while improving release quality and observability.',
-    secondaryExperienceDescription:
-        'Maintained backend services, optimized queries, and supported integrations with third-party systems.',
-    skills: ['Node.js', 'AWS', 'React', 'PostgreSQL'],
-    strengths: [
-      'Strong API design experience.',
-      'Comfortable across frontend and backend delivery.',
-      'Good production ownership mindset.'
-    ],
-    gaps: [
-      'Probe depth of design-system experience.',
-      'Validate leadership scope on larger teams.'
-    ],
-    questions: [
-      'Tell us about the most complex system you scaled.',
-      'How do you debug a production performance issue?'
-    ],
-  ),
-  _PoolCandidate(
-    name: 'Sarah Jenkins',
-    role: 'Product Designer',
-    score: 87,
-    status: 'NEW',
-    statusColor: Color(0xFF059669),
-    summary:
-        'Visual storyteller with a deep understanding of human-centered design and iterative prototyping.',
-    location: 'Remote',
-    email: 'sarah.j@example.com',
-    experienceLabel: '5+ Years Experience',
-    company: 'PixelFoundry',
-    previousCompany: 'DesignWorks Studio',
-    primaryExperienceTitle: 'Product Designer',
-    secondaryExperienceTitle: 'UI/UX Designer',
-    primaryExperienceDescription:
-        'Designed end-to-end user journeys, prototypes, and usability studies for mobile and web products.',
-    secondaryExperienceDescription:
-        'Delivered visual design systems and conducted customer interviews for early-stage products.',
-    skills: ['Figma', 'UX Research', 'Prototyping', 'Design Systems'],
-    strengths: [
-      'Strong user research process.',
-      'Excellent visual design quality.',
-      'Portfolio shows strong case studies.'
-    ],
-    gaps: [
-      'Limited frontend implementation experience.',
-      'Probe measurable product impact.'
-    ],
-    questions: [
-      'How do you validate a design decision?',
-      'Which case study best represents your process?'
-    ],
-  ),
-  _PoolCandidate(
-    name: 'David Okafor',
-    role: 'Backend Specialist',
-    score: 85,
-    status: 'NEW',
-    statusColor: Color(0xFF059669),
-    summary:
-        'Python/Django expert with focus on security and high-availability systems. Previous fintech experience.',
-    location: 'New York, NY',
-    email: 'david.o@example.com',
-    experienceLabel: '7+ Years Experience',
-    company: 'FinCore Systems',
-    previousCompany: 'SecurePay',
-    primaryExperienceTitle: 'Backend Specialist',
-    secondaryExperienceTitle: 'Django Developer',
-    primaryExperienceDescription:
-        'Owned backend services for fintech workflows, security controls, and data reliability improvements.',
-    secondaryExperienceDescription:
-        'Built Django APIs, asynchronous workers, and secure integrations for payment products.',
-    skills: ['Python', 'Django', 'Security', 'PostgreSQL'],
-    strengths: [
-      'Strong backend reliability experience.',
-      'Security-oriented engineering mindset.',
-      'Good fintech domain exposure.'
-    ],
-    gaps: [
-      'Limited frontend experience.',
-      'Probe collaboration with product design teams.'
-    ],
-    questions: [
-      'How have you handled security reviews?',
-      'What tradeoffs did you make in a high-availability system?'
-    ],
-  ),
-];
+

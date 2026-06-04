@@ -3,16 +3,38 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../models/candidate.dart';
-import '../services/openai_service.dart';
+import '../services/ai_service.dart';
 import '../widgets/candidate_card.dart';
 import 'candidate_pool_screen.dart';
+import 'pipeline_screen.dart';
 import 'reports_screen.dart';
+import 'onboarding_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  final String apiKey;
+  final Map<String, String> apiKeys;
+  final String provider;
+  final String customPrompt;
+  final int shortlistCutoff;
+  final String companyName;
+  final String companyIndustry;
+  final double weightSkills;
+  final double weightExperience;
+  final double weightCulture;
 
-  const DashboardScreen({super.key, required this.apiKey});
+  const DashboardScreen({
+    super.key,
+    required this.apiKeys,
+    required this.provider,
+    this.customPrompt = '',
+    this.shortlistCutoff = 75,
+    this.companyName = '',
+    this.companyIndustry = '',
+    this.weightSkills = 40.0,
+    this.weightExperience = 40.0,
+    this.weightCulture = 20.0,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -20,9 +42,9 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final _jobDescController = TextEditingController();
-  late final OpenAIService _openAI;
+  late final AIService _aiService;
 
-  List<Map<String, String>> _resumes = [];
+  List<Map<String, dynamic>> _resumes = [];
   List<Candidate> _candidates = [];
   bool _uploading = false;
   bool _analyzing = false;
@@ -31,6 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _sortBy = 'Score';
   int _selectedTab = 0;
   List<String> _activeFilters = [];
+  int? _expandedIndex = 0;
 
   final List<String> _filterOptions = [
     'Software',
@@ -44,7 +67,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _openAI = OpenAIService(widget.apiKey);
+    final activeKey = widget.apiKeys[widget.provider] ?? '';
+    _aiService = AIFactory.getService(
+      widget.provider, 
+      activeKey, 
+      customPrompt: widget.customPrompt,
+      companyContext: '${widget.companyName} (${widget.companyIndustry})',
+      weightSkills: widget.weightSkills,
+      weightExperience: widget.weightExperience,
+      weightCulture: widget.weightCulture,
+    );
   }
 
   Future<void> _pickResumes() async {
@@ -71,17 +103,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         String content = '';
 
         if (file.bytes != null) {
-          // For txt files, decode directly
-          if (name.endsWith('.txt')) {
+          if (name.toLowerCase().endsWith('.pdf')) {
+            try {
+              final document = PdfDocument(inputBytes: file.bytes!);
+              content = PdfTextExtractor(document).extractText();
+              document.dispose();
+            } catch (e) {
+              content = 'Could not parse PDF';
+            }
+          } else if (name.toLowerCase().endsWith('.txt')) {
             content = utf8.decode(file.bytes!, allowMalformed: true);
           } else {
-            // For PDF/DOCX, use the raw bytes as base64 placeholder
-            // In production you'd parse these properly
             content = utf8.decode(file.bytes!, allowMalformed: true);
           }
         }
 
-        _resumes.add({'name': name, 'content': content});
+        _resumes.add({
+          'name': name,
+          'content': content,
+          'path': file.path,
+          'bytes': file.bytes,
+        });
 
         setState(() {
           _uploadProgress = (i + 1) / total;
@@ -116,10 +158,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      final results = await _openAI.analyzeCandidates(
+      final results = await _aiService.analyzeCandidates(
         jobDescription: _jobDescController.text.trim(),
         resumes: _resumes,
       );
+      
+      // Auto-shortlist candidates meeting the cutoff threshold
+      for (var c in results) {
+        if (c.matchScore >= widget.shortlistCutoff) {
+          c.isShortlisted = true;
+          c.pipelineStatus = 'Not Contacted';
+        }
+      }
+      
       setState(() => _candidates = results);
     } catch (e) {
       setState(() => _errorMsg = e.toString().replaceFirst('Exception: ', ''));
@@ -148,9 +199,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Widget body;
     switch (_selectedTab) {
       case 1:
-        body = CandidatePoolScreen(candidates: sortedCandidates);
+        body = CandidatePoolScreen(
+          candidates: sortedCandidates,
+          onCandidateUpdated: (c) => setState(() {}),
+        );
         break;
       case 2:
+        body = PipelineScreen(
+          candidates: sortedCandidates.where((c) => c.isShortlisted).toList(),
+          onCandidateUpdated: (c) => setState(() {}),
+        );
+        break;
+      case 3:
         body = ReportsScreen(candidates: sortedCandidates);
         break;
       default:
@@ -182,7 +242,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: Color(0xFF1A56DB), size: 24),
           const SizedBox(width: 8),
           Text(
-            'HireMind AI',
+            widget.companyName.isNotEmpty ? widget.companyName : 'HireMind AI',
             style: GoogleFonts.inter(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -190,7 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(width: 32),
-          ...['Dashboard', 'Candidate Pool', 'Reports'].asMap().entries.map(
+          ...['Dashboard', 'Candidate Pool', 'Pipeline', 'Reports'].asMap().entries.map(
                 (entry) => Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: _NavItem(
@@ -201,39 +261,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
           const Spacer(),
-          // API key indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD1FAE5),
-              borderRadius: BorderRadius.circular(20),
-            ),
+          InkWell(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+              );
+            },
+            borderRadius: BorderRadius.circular(20),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.circle, color: Color(0xFF059669), size: 8),
-                const SizedBox(width: 6),
-                Text(
-                  'OpenAI Connected',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF059669),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.circle, color: Color(0xFF059669), size: 8),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${widget.provider} Connected',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF059669),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Avatar
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+                    image: const DecorationImage(
+                      image: AssetImage('assets/images/user_avatar.png'),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          // Avatar
-          Container(
-            width: 34,
-            height: 34,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFF1A56DB),
-            ),
-            child: const Icon(Icons.person, color: Colors.white, size: 18),
           ),
         ],
       ),
@@ -249,12 +324,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           width: 320,
           height: double.infinity,
           color: Colors.white,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLeftPanel(),
-            ],
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: _buildLeftPanel(),
           ),
         ),
         // Right panel
@@ -584,7 +656,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (_candidates.isEmpty && !_analyzing)
               _EmptyState()
             else if (_analyzing)
-              _AnalyzingState()
+              _AnalyzingState(provider: widget.provider)
             else
               ..._sortedCandidates
                   .asMap()
@@ -593,6 +665,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     (e) => CandidateCard(
                       candidate: e.value,
                       index: e.key,
+                      isExpanded: _expandedIndex == e.key,
+                      onToggle: () {
+                        setState(() {
+                          _expandedIndex = _expandedIndex == e.key ? null : e.key;
+                        });
+                      },
                     ),
                   )
                   .toList(),
@@ -753,6 +831,10 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _AnalyzingState extends StatelessWidget {
+  final String provider;
+
+  const _AnalyzingState({required this.provider});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -763,7 +845,7 @@ class _AnalyzingState extends StatelessWidget {
             const CircularProgressIndicator(color: Color(0xFF1A56DB)),
             const SizedBox(height: 20),
             Text(
-              'Analyzing candidates with GPT-4o...',
+              'Analyzing candidates with $provider...',
               style: GoogleFonts.inter(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,

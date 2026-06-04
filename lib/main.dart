@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'screens/api_key_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const HireMindApp());
@@ -23,7 +23,7 @@ class HireMindApp extends StatelessWidget {
         textTheme: GoogleFonts.interTextTheme(),
         scaffoldBackgroundColor: const Color(0xFFF5F7FF),
       ),
-      home: const ApiKeyScreen(),
+      home: const SplashScreen(),
     );
   }
 }
