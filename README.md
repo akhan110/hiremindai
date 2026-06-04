@@ -2,6 +2,14 @@
 
 Same Flutter UI/design as the original HireMind AI, but the AI layer has been rebuilt to avoid huge prompts and token-per-minute errors.
 
+## Interface Preview
+
+### Main Dashboard
+![HireMind AI Dashboard](docs/dashboard.png)
+
+### Candidate Detail View
+![Candidate Detailed Breakdown](docs/candidate_detail.png)
+
 ## What changed
 
 The old version sent the job description plus every resume in one massive prompt. That is why it can request more than 1M tokens per minute.
