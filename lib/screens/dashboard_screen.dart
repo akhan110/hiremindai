@@ -10,7 +10,6 @@ import '../services/license_service.dart';
 import '../widgets/candidate_card.dart';
 import 'candidate_pool_screen.dart';
 import 'pipeline_screen.dart';
-import 'reports_screen.dart';
 import 'onboarding_screen.dart';
 import 'license_screen.dart';
 
@@ -213,9 +212,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onCandidateUpdated: (c) => setState(() {}),
         );
         break;
-      case 3:
-        body = ReportsScreen(candidates: sortedCandidates);
-        break;
+
       default:
         body = isWide ? _buildWideLayout() : _buildNarrowLayout();
     }
@@ -232,6 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildNavBar() {
+    final isWide = MediaQuery.of(context).size.width > 700;
     return Container(
       height: 58,
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -243,37 +241,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           const Icon(Icons.psychology_outlined,
               color: Color(0xFF1A56DB), size: 24),
-          const SizedBox(width: 8),
-          Text(
-            widget.companyName.isNotEmpty ? widget.companyName : 'HireMind AI',
-            style: GoogleFonts.inter(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF111827),
+          if (isWide) const SizedBox(width: 8),
+          if (isWide)
+            Text(
+              widget.companyName.isNotEmpty ? widget.companyName : 'HireMind AI',
+              style: GoogleFonts.inter(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF111827),
+              ),
+            ),
+          const SizedBox(width: 32),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: ['Dashboard', 'Candidate Pool', 'Pipeline'].asMap().entries.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: _NavItem(
+                          label: entry.value,
+                          active: _selectedTab == entry.key,
+                          onTap: () => setState(() => _selectedTab = entry.key),
+                        ),
+                      ),
+                    ).toList(),
+              ),
             ),
           ),
-          const SizedBox(width: 32),
-          ...['Dashboard', 'Candidate Pool', 'Pipeline', 'Reports'].asMap().entries.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: _NavItem(
-                    label: entry.value,
-                    active: _selectedTab == entry.key,
-                    onTap: () => setState(() => _selectedTab = entry.key),
-                  ),
-                ),
-              ),
-          const Spacer(),
-          InkWell(
-            onTap: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-              );
-            },
-            borderRadius: BorderRadius.circular(20),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+          if (isWide)
+            InkWell(
+              onTap: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(20),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(

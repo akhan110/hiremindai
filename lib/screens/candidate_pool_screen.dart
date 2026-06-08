@@ -950,7 +950,10 @@ class _PoolCandidate {
   });
 
   factory _PoolCandidate.fromCandidate(Candidate candidate) {
-    final role = _roleFromSkills(candidate.skills);
+    final fallbackRole = _roleFromSkills(candidate.skills);
+    final role = candidate.primaryExperienceTitle.isNotEmpty 
+        ? candidate.primaryExperienceTitle 
+        : fallbackRole;
     final status = candidate.isShortlisted ? 'SHORTLISTED' : 'NEW';
     final statusColor = candidate.isShortlisted
         ? const Color(0xFF075BC7)
@@ -974,7 +977,7 @@ class _PoolCandidate {
       company: candidate.company,
       previousCompany: candidate.previousCompany,
       primaryExperienceTitle: candidate.primaryExperienceTitle.isNotEmpty ? candidate.primaryExperienceTitle : role,
-      secondaryExperienceTitle: candidate.secondaryExperienceTitle.isNotEmpty ? candidate.secondaryExperienceTitle : 'Software Engineer',
+      secondaryExperienceTitle: candidate.secondaryExperienceTitle.isNotEmpty ? candidate.secondaryExperienceTitle : 'Professional',
       primaryExperienceDescription: candidate.strengths.isEmpty
           ? 'Built and maintained production applications while collaborating with product and engineering teams.'
           : candidate.strengths.take(2).join(' '),
@@ -1037,7 +1040,7 @@ String _roleFromSkills(List<String> skills) {
   if (joined.contains('python') || joined.contains('django')) {
     return 'Backend Specialist';
   }
-  return 'Software Engineer';
+  return 'Professional';
 }
 
 

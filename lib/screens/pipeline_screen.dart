@@ -201,7 +201,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(50),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
           BoxShadow(
@@ -253,7 +253,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'Applied for: ${candidate.primaryExperienceTitle.isNotEmpty ? candidate.primaryExperienceTitle : 'Software Engineer'}',
+                    'Applied for: ${candidate.primaryExperienceTitle.isNotEmpty ? candidate.primaryExperienceTitle : 'Professional'}',
                     style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
@@ -264,43 +264,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
               ],
             ),
           ),
-          // Status Dropdown
-          Text(
-            'Pipeline Status:',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF6B7280),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            height: 32,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: candidate.pipelineStatus,
-                icon: const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF4B5563)),
-                items: _statuses
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF374151)))))
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      candidate.pipelineStatus = val;
-                    });
-                    widget.onCandidateUpdated(candidate);
-                  }
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 24),
+
           // Action Buttons
           Row(
             children: [
@@ -389,6 +353,17 @@ class _PipelineScreenState extends State<PipelineScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
                 ),
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    candidate.isShortlisted = false;
+                  });
+                  widget.onCandidateUpdated(candidate);
+                },
+                icon: const Icon(Icons.cancel, color: Colors.red),
+                tooltip: 'Remove from Pipeline',
               ),
             ],
           ),

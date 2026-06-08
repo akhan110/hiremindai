@@ -279,6 +279,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
+    final isWideDesktop = size.width >= 1050;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FF),
@@ -316,7 +317,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
               // Stepper Card
               Container(
-                width: isMobile ? double.infinity : 650,
+                width: isWideDesktop ? 1000 : (isMobile ? double.infinity : 650),
+                height: isWideDesktop ? 600 : null,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -333,11 +335,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     colorScheme: ColorScheme.light(primary: const Color(0xFF1A56DB)),
                   ),
                   child: Stepper(
-                    type: isMobile ? StepperType.vertical : StepperType.vertical,
+                    type: isWideDesktop ? StepperType.horizontal : StepperType.vertical,
                     physics: const ClampingScrollPhysics(),
                     currentStep: _currentStep,
                     onStepContinue: () {
-                      if (_currentStep < 4) {
+                      if (_currentStep < 3) {
                         setState(() => _currentStep++);
                       } else {
                         _finishSetup();
@@ -398,7 +400,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       // Step 1: Company Profile
                       Step(
                         title: Text('Company Profile', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-                        subtitle: Text('Context helps AI understand culture fit.', style: GoogleFonts.inter(fontSize: 12)),
                         isActive: _currentStep >= 0,
                         state: _currentStep > 0 ? StepState.complete : StepState.indexed,
                         content: Column(
@@ -433,31 +434,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ],
                         ),
                       ),
-                      // Step 2: Evaluation Rules
-                      Step(
-                        title: Text('Evaluation Rules', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-                        subtitle: Text('Define the AI\'s persona and custom rules.', style: GoogleFonts.inter(fontSize: 12)),
-                        isActive: _currentStep >= 1,
-                        state: _currentStep > 1 ? StepState.complete : StepState.indexed,
-                        content: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 12),
-                            _buildTextInput(
-                              'Custom AI Persona & Rules (Optional)', 
-                              'e.g. Always prioritize candidates with Flutter experience. Penalize gaps in employment...', 
-                              _customPromptController,
-                              maxLines: 4
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Step 3: Scoring Weights
+
+                      // Step 2: Scoring Weights
                       Step(
                         title: Text('Scoring Weights', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-                        subtitle: Text('Define what matters most for scoring.', style: GoogleFonts.inter(fontSize: 12)),
-                        isActive: _currentStep >= 2,
-                        state: _currentStep > 2 ? StepState.complete : StepState.indexed,
+                        isActive: _currentStep >= 1,
+                        state: _currentStep > 1 ? StepState.complete : StepState.indexed,
                         content: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -473,12 +455,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ],
                         ),
                       ),
-                      // Step 4: Automation Settings
+                      // Step 3: Automation Settings
                       Step(
                         title: Text('Automation Settings', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-                        subtitle: Text('Set thresholds for automatic pipeline actions.', style: GoogleFonts.inter(fontSize: 12)),
-                        isActive: _currentStep >= 3,
-                        state: _currentStep > 3 ? StepState.complete : StepState.indexed,
+                        isActive: _currentStep >= 2,
+                        state: _currentStep > 2 ? StepState.complete : StepState.indexed,
                         content: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -492,11 +473,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ],
                         ),
                       ),
-                      // Step 5: AI Providers
+                      // Step 4: AI Providers
                       Step(
                         title: Text('AI Providers', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-                        subtitle: Text('Configure API keys for resume extraction.', style: GoogleFonts.inter(fontSize: 12)),
-                        isActive: _currentStep >= 4,
+                        isActive: _currentStep >= 3,
                         content: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
