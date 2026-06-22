@@ -7,7 +7,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:universal_html/html.dart' as html;
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
+import 'package:universal_io/io.dart';
 import 'dart:convert';
 import '../models/candidate.dart';
 
