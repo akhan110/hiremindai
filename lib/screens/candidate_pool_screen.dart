@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io';
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:universal_html/html.dart' as html;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -270,7 +265,7 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
                           backgroundColor: candidate.original.isShortlisted ? Colors.white : const Color(0xFF075BC7),
                           foregroundColor: candidate.original.isShortlisted ? const Color(0xFF075BC7) : Colors.white,
                           elevation: 0,
-                          side: BorderSide(color: const Color(0xFF075BC7), width: 1.5),
+                          side: const BorderSide(color: Color(0xFF075BC7), width: 1.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(7),
                           ),
@@ -472,7 +467,7 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
       border: Border.all(color: const Color(0xFFB9C6DA)),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.02),
+          color: Colors.black.withValues(alpha: 0.02),
           blurRadius: 12,
           offset: const Offset(0, 2),
         ),
@@ -723,87 +718,6 @@ class _ProfessionalLink extends StatelessWidget {
   }
 }
 
-class _ExperienceItem extends StatelessWidget {
-  final bool active;
-  final String title;
-  final String company;
-  final String description;
-  final bool isLast;
-
-  const _ExperienceItem({
-    required this.active,
-    required this.title,
-    required this.company,
-    required this.description,
-    this.isLast = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF075BC7) : const Color(0xFFCBD5E1);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 20,
-          child: Column(
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
-              if (!isLast)
-                Container(
-                  width: 2,
-                  height: 86,
-                  color: const Color(0xFFCBD5E1),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  company,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1F2937),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  description,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: const Color(0xFF374151),
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SectionLabel extends StatelessWidget {
   final String label;
 
@@ -958,9 +872,6 @@ class _PoolCandidate {
     final statusColor = candidate.isShortlisted
         ? const Color(0xFF075BC7)
         : const Color(0xFF059669);
-    final expLabel = candidate.experience > 0
-        ? '${candidate.experience}+ Years Experience'
-        : 'Entry Level';
     return _PoolCandidate(
       name: candidate.name.isEmpty ? 'Candidate' : candidate.name,
       role: role,

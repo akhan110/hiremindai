@@ -9,6 +9,12 @@ abstract class AIService {
   });
 
   Future<bool> validateApiKey();
+
+  Future<String> optimizeJobDescription(String currentDesc);
+
+  Future<String> generateJobDescription(String rolePrompt);
+
+  Future<String> atsOptimizeResume({required String resumeText, required String jobDescription});
 }
 
 class AIFactory {
@@ -381,6 +387,112 @@ ${jsonEncode(profile)}
       return false;
     }
   }
+
+  @override
+  Future<String> optimizeJobDescription(String currentDesc) async {
+    if (currentDesc.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert technical recruiter. Please optimize and improve the following job description to make it professional, engaging, and clear. 
+Fix any typos, improve the formatting, and ensure it highlights the requirements well. Only return the improved job description text, nothing else.
+
+Current Job Description:
+$currentDesc
+''';
+    final response = await http.post(
+      Uri.parse('$_baseUrl/chat/completions'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $apiKey'},
+      body: jsonEncode({
+        'model': _model,
+        'messages': [
+          {'role': 'user', 'content': prompt},
+        ],
+        'temperature': 0.7,
+      }),
+    );
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        return data['choices'][0]['message']['content'].toString().trim();
+      } catch (_) {}
+    }
+    return currentDesc; // fallback
+  }
+
+  @override
+  Future<String> generateJobDescription(String rolePrompt) async {
+    if (rolePrompt.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert technical recruiter. Please generate a professional, engaging, and clear job description for the following role: "$rolePrompt".
+The job description should be about 6 to 7 lines long and include a brief overview, key responsibilities, and main requirements. 
+Return ONLY the job description text, nothing else.
+''';
+    final response = await http.post(
+      Uri.parse('$_baseUrl/chat/completions'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $apiKey'},
+      body: jsonEncode({
+        'model': _model,
+        'messages': [
+          {'role': 'user', 'content': prompt},
+        ],
+        'temperature': 0.7,
+      }),
+    );
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        return data['choices'][0]['message']['content'].toString().trim();
+      } catch (_) {}
+    }
+    throw Exception('Failed to generate job description.');
+  }
+
+  @override
+  Future<String> atsOptimizeResume({required String resumeText, required String jobDescription}) async {
+    if (resumeText.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert ATS (Applicant Tracking System) optimization assistant. 
+Rewrite the following resume so that it passes ATS systems with the highest possible match rate for the provided job description.
+Follow these rules strictly:
+1. Do not hallucinate or invent non-existent experience.
+2. Naturally integrate as many keywords from the job description as possible into the bullet points.
+3. Use clean, standard section headings (e.g., "Professional Experience", "Skills", "Education").
+4. Rephrase bullet points to be impact-driven (Action Verb + Context + Result) and align with the role's requirements.
+5. Return ONLY the rewritten resume content in clear Markdown formatting. Do not include any introductory or concluding conversational text.
+
+Target Job Description:
+${trim(jobDescription, 5000)}
+
+Original Resume:
+${trim(resumeText, 8000)}
+''';
+    final response = await http.post(
+      Uri.parse('$_baseUrl/chat/completions'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $apiKey'},
+      body: jsonEncode({
+        'model': _model,
+        'messages': [
+          {'role': 'user', 'content': prompt},
+        ],
+        'temperature': 0.4,
+      }),
+    );
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        String content = data['choices'][0]['message']['content'].toString().trim();
+        if (content.startsWith('```markdown')) {
+          content = content.substring(11);
+        } else if (content.startsWith('```')) {
+          content = content.substring(3);
+        }
+        if (content.endsWith('```')) {
+          content = content.substring(0, content.length - 3);
+        }
+        return content.trim();
+      } catch (_) {}
+    }
+    throw Exception('Failed to optimize resume with OpenAI.');
+  }
 }
 
 // ============================================================================
@@ -515,6 +627,118 @@ Candidate profile JSON: ${jsonEncode(profile)}
     } catch (_) {
       return false;
     }
+  }
+
+  @override
+  Future<String> optimizeJobDescription(String currentDesc) async {
+    if (currentDesc.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert technical recruiter. Please optimize and improve the following job description to make it professional, engaging, and clear. 
+Fix any typos, improve the formatting, and ensure it highlights the requirements well. Only return the improved job description text, nothing else.
+
+Current Job Description:
+$currentDesc
+''';
+    final response = await http.post(
+      Uri.parse(_baseUrl),
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': _model,
+        'max_tokens': 1000,
+        'temperature': 0.7,
+        'messages': [
+          {'role': 'user', 'content': prompt}
+        ]
+      }),
+    );
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        return data['content'][0]['text'].toString().trim();
+      } catch (_) {}
+    }
+    return currentDesc; // fallback
+  }
+
+  @override
+  Future<String> generateJobDescription(String rolePrompt) async {
+    if (rolePrompt.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert technical recruiter. Please generate a professional, engaging, and clear job description for the following role: "$rolePrompt".
+The job description should be about 6 to 7 lines long and include a brief overview, key responsibilities, and main requirements. 
+Return ONLY the job description text, nothing else.
+''';
+    final response = await http.post(
+      Uri.parse(_baseUrl),
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': _model,
+        'max_tokens': 1000,
+        'temperature': 0.7,
+        'messages': [
+          {'role': 'user', 'content': prompt}
+        ]
+      }),
+    );
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        return data['content'][0]['text'].toString().trim();
+      } catch (_) {}
+    }
+    throw Exception('Failed to generate job description.');
+  }
+
+  @override
+  Future<String> atsOptimizeResume({required String resumeText, required String jobDescription}) async {
+    if (resumeText.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert ATS (Applicant Tracking System) optimization assistant. 
+Rewrite the following resume so that it passes ATS systems with the highest possible match rate for the provided job description.
+Follow these rules strictly:
+1. Do not hallucinate or invent non-existent experience.
+2. Naturally integrate as many keywords from the job description as possible into the bullet points.
+3. Use clean, standard section headings (e.g., "Professional Experience", "Skills", "Education").
+4. Rephrase bullet points to be impact-driven (Action Verb + Context + Result) and align with the role's requirements.
+5. Return ONLY the rewritten resume content in clear Markdown formatting. Do not include any introductory or concluding conversational text.
+
+Target Job Description:
+${trim(jobDescription, 5000)}
+
+Original Resume:
+${trim(resumeText, 8000)}
+''';
+    final response = await http.post(
+      Uri.parse(_baseUrl),
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': _model,
+        'max_tokens': 2500,
+        'temperature': 0.4,
+        'messages': [
+          {'role': 'user', 'content': prompt}
+        ]
+      }),
+    );
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        return data['content'][0]['text'].toString().trim();
+      } catch (_) {}
+    }
+    throw Exception('Failed to optimize resume with Claude.');
   }
 }
 

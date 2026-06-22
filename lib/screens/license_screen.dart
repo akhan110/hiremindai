@@ -80,7 +80,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF1A56DB).withOpacity(0.3),
+                          color: const Color(0xFF1A56DB).withValues(alpha: 0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -111,7 +111,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),

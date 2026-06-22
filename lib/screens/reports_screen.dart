@@ -59,7 +59,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           children: [
                 _buildHeader(context, items.length),
                 const SizedBox(height: 28),
-                _SectionTitle(
+                const _SectionTitle(
                   icon: Icons.workspace_premium_outlined,
                   title: 'Top 3 Recommended Candidates',
                 ),
@@ -369,7 +369,7 @@ class _TopCandidateCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.025),
+            color: Colors.black.withValues(alpha: 0.025),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -565,9 +565,9 @@ class _AnalysisTable extends StatelessWidget {
                       fontSize: 12, color: const Color(0xFF64748B)),
                 ),
                 const Spacer(),
-                _PagerButton(label: 'Previous'),
+                const _PagerButton(label: 'Previous'),
                 const SizedBox(width: 8),
-                _PagerButton(label: 'Next'),
+                const _PagerButton(label: 'Next'),
               ],
             ),
           ),
@@ -608,8 +608,8 @@ class _ScoreCircle extends StatelessWidget {
       height: 44,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color.withOpacity(0.08),
-        border: Border.all(color: color.withOpacity(0.45), width: 2),
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 2),
       ),
       child: Center(
         child: Text(
@@ -636,7 +636,7 @@ class _ScorePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -745,8 +745,9 @@ String _roleFromSkills(List<String> skills) {
   }
   if (joined.contains('react')) return 'Full Stack Engineer';
   if (joined.contains('azure')) return 'Software Engineer';
-  if (joined.contains('python') || joined.contains('django'))
+  if (joined.contains('python') || joined.contains('django')) {
     return 'Backend Developer';
+  }
   return 'Software Engineer';
 }
 
@@ -756,80 +757,3 @@ Color _scoreColor(int score) {
   return const Color(0xFFEF4444);
 }
 
-const List<_ReportCandidate> _demoReportCandidates = [
-  _ReportCandidate(
-    name: 'Muhammad Hussain',
-    role: 'Senior Developer',
-    experience: '6 Years',
-    score: 94,
-    badge: 'EXCEPTIONAL MATCH',
-    scoreColor: Color(0xFF1A56DB),
-    whyTheyMatch: [
-      '6+ years expert .NET Core & SQL experience',
-      'Strong microservices architecture background',
-      'Previous experience leading remote teams',
-    ],
-    keyStrengths: '.NET Core, SQL, Architecture',
-    potentialGap: 'Minimal React knowledge',
-  ),
-  _ReportCandidate(
-    name: 'Syed Hassaan',
-    role: 'Software Engineer',
-    experience: '5 Years',
-    score: 88,
-    badge: 'STRONG CANDIDATE',
-    scoreColor: Color(0xFF22C55E),
-    whyTheyMatch: [
-      'Masters in Computer Science',
-      'Expertise in Azure Cloud services',
-      'Clean code advocate (SOLID, TDD)',
-    ],
-    keyStrengths: 'Azure, DevOps, C#',
-    potentialGap: 'Lacks Docker experience',
-  ),
-  _ReportCandidate(
-    name: 'Fatima Zahra',
-    role: 'Full Stack Engineer',
-    experience: '4.5 Years',
-    score: 85,
-    badge: 'STRONG CANDIDATE',
-    scoreColor: Color(0xFF22C55E),
-    whyTheyMatch: [
-      'Strong frontend (React) & backend skills',
-      'Docker & Kubernetes proficiency',
-      'Excellent communication score',
-    ],
-    keyStrengths: 'React, .NET, Kubernetes',
-    potentialGap: 'Limited enterprise SQL',
-  ),
-  _ReportCandidate(
-    name: 'Muhammad Khan',
-    role: 'Backend Developer',
-    experience: '5 Years',
-    score: 78,
-    badge: 'MODERATE MATCH',
-    scoreColor: Color(0xFFEAB308),
-    whyTheyMatch: [
-      'Strong backend programming background',
-      'Database and API delivery experience',
-      'Good problem-solving record',
-    ],
-    keyStrengths: 'Django, SQL, Python',
-    potentialGap: 'No .NET experience',
-  ),
-  _ReportCandidate(
-    name: 'Ayesha Siddiqua',
-    role: 'Junior .NET dev',
-    experience: '2 Years',
-    score: 42,
-    badge: 'POTENTIAL',
-    scoreColor: Color(0xFFEF4444),
-    whyTheyMatch: [
-      'Basic C# and .NET exposure',
-      'Motivated junior profile',
-      'Some SQL Server familiarity',
-    ],
-    keyStrengths: 'C#, .NET Basic',
-    potentialGap: 'Under-qualified for Senior role',
-  ),
-];

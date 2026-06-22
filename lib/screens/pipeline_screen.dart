@@ -7,7 +7,6 @@ import 'package:open_filex/open_filex.dart';
 import 'package:universal_html/html.dart' as html;
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../models/candidate.dart';
@@ -23,14 +22,6 @@ class PipelineScreen extends StatefulWidget {
 }
 
 class _PipelineScreenState extends State<PipelineScreen> {
-  final List<String> _statuses = [
-    'Not Contacted',
-    'Interview Scheduled',
-    'Interview Completed',
-    'Offer Extended',
-    'Rejected'
-  ];
-  
   final Set<Candidate> _selectedCandidates = {};
 
   @override
@@ -174,7 +165,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
       final bytes = utf8.encode(csvString);
       final blob = html.Blob([bytes], 'text/csv');
       final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
+      html.AnchorElement(href: url)
         ..setAttribute('download', 'pipeline_export.csv')
         ..click();
       html.Url.revokeObjectUrl(url);
@@ -276,7 +267,7 @@ class _PipelineScreenState extends State<PipelineScreen> {
                       if (candidate.pdfBytes != null) {
                         final blob = html.Blob([Uint8List.fromList(candidate.pdfBytes!)], 'application/pdf');
                         final url = html.Url.createObjectUrlFromBlob(blob);
-                        final anchor = html.AnchorElement(href: url)
+                        html.AnchorElement(href: url)
                           ..setAttribute('download', '${candidate.name}_CV.pdf')
                           ..click();
                         html.Url.revokeObjectUrl(url);

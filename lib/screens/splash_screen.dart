@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/license_service.dart';
-import 'license_screen.dart';
 import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -23,14 +21,11 @@ class _SplashScreenState extends State<SplashScreen> {
     // Delay for aesthetic splash effect
     await Future.delayed(const Duration(seconds: 2));
     
-    // Check License Status
-    final isLicensed = await LicenseService.isLicenseValid();
-    
     if (mounted) {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
-              isLicensed ? const OnboardingScreen() : const LicenseScreen(),
+              const OnboardingScreen(),
           transitionsBuilder:
               (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
@@ -83,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen> {
               'AI-Powered Candidate Ranking Platform',
               style: GoogleFonts.inter(
                 fontSize: 16,
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
               ),
             ).animate().fadeIn(delay: 400.ms, duration: 500.ms),
           ],

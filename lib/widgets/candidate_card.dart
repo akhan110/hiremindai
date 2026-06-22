@@ -57,7 +57,7 @@ class CandidateCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -158,10 +158,10 @@ class CandidateCard extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFF),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFF),
                 border: Border(
-                  top: BorderSide(color: const Color(0xFFE5E7EB)),
+                  top: BorderSide(color: Color(0xFFE5E7EB)),
                 ),
               ),
               child: Column(
@@ -230,9 +230,9 @@ class CandidateCard extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: const Color(0xFFE5E7EB)),
+                    top: BorderSide(color: Color(0xFFE5E7EB)),
                   ),
                 ),
                 child: Row(

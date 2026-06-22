@@ -34,7 +34,7 @@ class LicenseService {
 
   static Future<bool> activateLicense(String key) async {
     // 1. Get Hardware ID
-    final hardwareId = await getHardwareId();
+    await getHardwareId();
     
     // 2. Simulate API Call to Licensing Server (e.g., LemonSqueezy)
     await Future.delayed(const Duration(seconds: 2)); // Simulate network latency

@@ -6,12 +6,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../models/candidate.dart';
 import '../services/ai_service.dart';
-import '../services/license_service.dart';
 import '../widgets/candidate_card.dart';
 import 'candidate_pool_screen.dart';
 import 'pipeline_screen.dart';
+import 'ats_optimizer_screen.dart';
 import 'onboarding_screen.dart';
-import 'license_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, String> apiKeys;
@@ -43,17 +42,19 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final _jobDescController = TextEditingController();
+  final _rolePromptController = TextEditingController();
   late final AIService _aiService;
 
   List<Map<String, dynamic>> _resumes = [];
   List<Candidate> _candidates = [];
   bool _uploading = false;
   bool _analyzing = false;
+  bool _optimizingJobDesc = false;
   double _uploadProgress = 0;
   String? _errorMsg;
   String _sortBy = 'Score';
   int _selectedTab = 0;
-  List<String> _activeFilters = [];
+  final List<String> _activeFilters = [];
   int? _expandedIndex = 0;
 
   final List<String> _filterOptions = [
@@ -182,7 +183,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<Candidate> get _sortedCandidates {
-    final list = List<Candidate>.from(_candidates);
+    var list = List<Candidate>.from(_candidates);
+    
+    // Apply filters
+    if (_activeFilters.isNotEmpty) {
+      list = list.where((c) {
+        return _activeFilters.any((filter) {
+          final f = filter.toLowerCase();
+          return c.skills.any((s) => s.toLowerCase().contains(f)) ||
+                 c.aiSummary.toLowerCase().contains(f) ||
+                 c.strengths.any((s) => s.toLowerCase().contains(f));
+        });
+      }).toList();
+    }
+
     if (_sortBy == 'Score') {
       list.sort((a, b) => b.matchScore.compareTo(a.matchScore));
     } else if (_sortBy == 'Experience') {
@@ -212,7 +226,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onCandidateUpdated: (c) => setState(() {}),
         );
         break;
-
+      case 3:
+        body = ATSOptimizerScreen(
+          apiKeys: widget.apiKeys,
+          provider: widget.provider,
+        );
+        break;
       default:
         body = isWide ? _buildWideLayout() : _buildNarrowLayout();
     }
@@ -256,7 +275,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: ['Dashboard', 'Candidate Pool', 'Pipeline'].asMap().entries.map(
+                children: ['Dashboard', 'Candidate Pool', 'Pipeline', 'ATS Optimizer'].asMap().entries.map(
                       (entry) => Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: _NavItem(
@@ -391,25 +410,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () {
-              _jobDescController.text =
-                  'We are looking for a Senior Full-Stack Engineer to join our team. '
-                  'You will be responsible for designing and implementing scalable web applications. '
-                  'Requirements: 5+ years of experience with React, Node.js, AWS. '
-                  'Strong knowledge of DevOps and CI/CD pipelines. Experience in SaaS environments preferred.';
-            },
-            icon: const Icon(Icons.auto_awesome, size: 14),
-            label: Text(
-              'AI Optimize',
-              style: GoogleFonts.inter(fontSize: 13),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _rolePromptController,
+                style: GoogleFonts.inter(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Or type a role to generate...',
+                  hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFFD1D5DB)),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF1A56DB), width: 1.5),
+                  ),
+                ),
+              ),
             ),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF1A56DB),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: _optimizingJobDesc ? null : () async {
+                final rolePrompt = _rolePromptController.text.trim();
+                final currentDesc = _jobDescController.text.trim();
+
+                if (rolePrompt.isEmpty && currentDesc.isEmpty) {
+                  setState(() => _errorMsg = 'Please enter a role or paste a job description.');
+                  return;
+                }
+
+                setState(() {
+                  _optimizingJobDesc = true;
+                  _errorMsg = null;
+                });
+                try {
+                  String result;
+                  if (rolePrompt.isNotEmpty) {
+                    result = await _aiService.generateJobDescription(rolePrompt);
+                  } else {
+                    result = await _aiService.optimizeJobDescription(currentDesc);
+                  }
+                  
+                  if (result.isNotEmpty) {
+                    _jobDescController.text = result;
+                    _rolePromptController.clear();
+                  }
+                } catch (e) {
+                  setState(() => _errorMsg = 'Failed to process: \$e');
+                } finally {
+                  setState(() => _optimizingJobDesc = false);
+                }
+              },
+              icon: _optimizingJobDesc 
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.auto_awesome, size: 14),
+              label: Text(
+                _optimizingJobDesc ? 'Processing...' : 'AI Optimize',
+                style: GoogleFonts.inter(fontSize: 13),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF1A56DB),
+              ),
             ),
-          ),
+          ],
         ),
         const SizedBox(height: 20),
         const _StepHeader(label: 'Source Candidates', step: 'STEP 2'),
@@ -559,7 +630,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1A56DB),
               foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xFF1A56DB).withOpacity(0.6),
+              disabledBackgroundColor: const Color(0xFF1A56DB).withValues(alpha: 0.6),
               disabledForegroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
@@ -682,8 +753,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         });
                       },
                     ),
-                  )
-                  .toList(),
+                  ),
           ],
         ),
       ),
