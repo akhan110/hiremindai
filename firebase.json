@@ -1,0 +1,1 @@
+{"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]},"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"hiremind-ai-akhan","configurations":{"web":"1:941433415373:web:ae4b1bca7daf7769166b84","windows":"1:941433415373:web:3e8cd6e18a6a566c166b84"}}}}}}

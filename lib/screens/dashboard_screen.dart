@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/candidate.dart';
 import '../services/ai_service.dart';
 import '../widgets/candidate_card.dart';
@@ -323,6 +324,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 
                 const SizedBox(width: 12),
+                const SizedBox(width: 12),
                 // Avatar
                 Container(
                   width: 38,
@@ -335,6 +337,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       fit: BoxFit.cover,
                     ),
                   ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Color(0xFF6B7280)),
+                  tooltip: 'Sign Out',
+                  onPressed: () async {
+                    await FirebaseAuth.instance.signOut();
+                  },
                 ),
               ],
             ),
