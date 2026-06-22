@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firebase_service.dart';
 import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -21,6 +23,24 @@ class _SplashScreenState extends State<SplashScreen> {
     // Delay for aesthetic splash effect
     await Future.delayed(const Duration(seconds: 2));
     
+    try {
+      final userProfile = await FirebaseService.syncUserProfile();
+      if (userProfile.isBlocked) {
+        await FirebaseAuth.instance.signOut();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your account has been suspended. Please contact support.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error syncing profile: $e');
+    }
+
     if (mounted) {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(

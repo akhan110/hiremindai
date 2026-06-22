@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../services/ai_service.dart';
+import '../services/firebase_service.dart';
+import '../models/app_user.dart';
 
 class ATSOptimizerScreen extends StatefulWidget {
   final Map<String, String> apiKeys;
@@ -32,12 +34,23 @@ class _ATSOptimizerScreenState extends State<ATSOptimizerScreen> {
   bool _uploading = false;
   bool _optimizing = false;
   String? _errorMsg;
+  AppUser? _currentUser;
 
   @override
   void initState() {
     super.initState();
     final activeKey = widget.apiKeys[widget.provider] ?? '';
     _aiService = AIFactory.getService(widget.provider, activeKey);
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await FirebaseService.getCurrentUserProfile();
+      if (mounted) setState(() => _currentUser = user);
+    } catch (e) {
+      // Ignored
+    }
   }
 
   Future<void> _pickResume() async {
@@ -98,6 +111,22 @@ class _ATSOptimizerScreenState extends State<ATSOptimizerScreen> {
       return;
     }
 
+    if (_currentUser != null) {
+      if (_currentUser!.tokensUsed + 1 > _currentUser!.monthlyQuota) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Quota Exceeded'),
+            content: Text('You have reached your monthly limit of ${_currentUser!.monthlyQuota} AI scans. Please upgrade to continue.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
+            ],
+          )
+        );
+        return;
+      }
+    }
+
     setState(() {
       _optimizing = true;
       _errorMsg = null;
@@ -121,6 +150,11 @@ class _ATSOptimizerScreenState extends State<ATSOptimizerScreen> {
       }
 
       setState(() => _optimizedResume = cleanResult);
+
+      if (_currentUser != null) {
+        await FirebaseService.incrementTokenUsage(1);
+        _loadCurrentUser(); // Refresh local quota
+      }
     } catch (e) {
       setState(() => _errorMsg = e.toString().replaceFirst('Exception: ', ''));
     } finally {

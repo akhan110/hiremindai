@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/candidate.dart';
+import '../models/app_user.dart';
 
 class FirebaseService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -87,5 +88,77 @@ class FirebaseService {
       return doc.data()!['settings'] as Map<String, dynamic>;
     }
     return null;
+  }
+
+  // Admin & User Profiles
+  static Future<AppUser> syncUserProfile() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user');
+
+    final docRef = _firestore.collection('users').doc(user.uid);
+    final doc = await docRef.get();
+
+    if (!doc.exists) {
+      // First time login
+      // TODO: Replace with your exact email address for security
+      final bool isAdmin = user.email == 'akhan110@gmail.com'; 
+      final appUser = AppUser(
+        uid: user.uid,
+        email: user.email ?? '',
+        tokensUsed: 0,
+        monthlyQuota: 50,
+        isBlocked: false,
+        isAdmin: isAdmin,
+      );
+      await docRef.set(appUser.toJson());
+      return appUser;
+    } else {
+      // Retroactive admin check for existing users
+      bool shouldBeAdmin = user.email == 'akhan110@gmail.com';
+      var appUser = AppUser.fromJson(doc.data()!, doc.id);
+      
+      if (shouldBeAdmin && !appUser.isAdmin) {
+        await docRef.update({'isAdmin': true});
+        appUser = AppUser(
+          uid: appUser.uid,
+          email: appUser.email,
+          tokensUsed: appUser.tokensUsed,
+          monthlyQuota: appUser.monthlyQuota,
+          isBlocked: appUser.isBlocked,
+          isAdmin: true,
+          createdAt: appUser.createdAt,
+        );
+      }
+      return appUser;
+    }
+  }
+
+  static Future<AppUser> getCurrentUserProfile() async {
+    final uid = _userId;
+    final doc = await _firestore.collection('users').doc(uid).get();
+    if (!doc.exists) return await syncUserProfile();
+    return AppUser.fromJson(doc.data()!, doc.id);
+  }
+
+  static Future<void> incrementTokenUsage(int amount) async {
+    final uid = _userId;
+    await _firestore.collection('users').doc(uid).update({
+      'tokensUsed': FieldValue.increment(amount),
+    });
+  }
+
+  static Future<List<AppUser>> getAllUsers() async {
+    final snapshot = await _firestore.collection('users').orderBy('createdAt', descending: true).get();
+    return snapshot.docs.map((doc) => AppUser.fromJson(doc.data(), doc.id)).toList();
+  }
+
+  static Future<void> updateUserStatus(String targetUid, {bool? isBlocked, int? monthlyQuota}) async {
+    final Map<String, dynamic> updates = {};
+    if (isBlocked != null) updates['isBlocked'] = isBlocked;
+    if (monthlyQuota != null) updates['monthlyQuota'] = monthlyQuota;
+    
+    if (updates.isNotEmpty) {
+      await _firestore.collection('users').doc(targetUid).update(updates);
+    }
   }
 }

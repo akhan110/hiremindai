@@ -13,6 +13,9 @@ import 'candidate_pool_screen.dart';
 import 'pipeline_screen.dart';
 import 'ats_optimizer_screen.dart';
 import 'onboarding_screen.dart';
+import 'admin_dashboard_screen.dart';
+import 'login_screen.dart';
+import '../models/app_user.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, String> apiKeys;
@@ -49,6 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   List<Map<String, dynamic>> _resumes = [];
   List<Candidate> _candidates = [];
+  AppUser? _currentUser;
   bool _uploading = false;
   bool _analyzing = false;
   bool _optimizingJobDesc = false;
@@ -82,6 +86,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       weightCulture: widget.weightCulture,
     );
     _loadCandidatesFromCloud();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final user = await FirebaseService.getCurrentUserProfile();
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
+    } catch (e) {
+      // Ignored
+    }
   }
 
   Future<void> _loadCandidatesFromCloud() async {
@@ -169,6 +187,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
+    if (_currentUser != null) {
+      if (_currentUser!.tokensUsed + _resumes.length > _currentUser!.monthlyQuota) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Quota Exceeded'),
+            content: Text('You only have ${_currentUser!.monthlyQuota - _currentUser!.tokensUsed} AI scans remaining, but you uploaded ${_resumes.length} resumes. Please upgrade your plan.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
+            ],
+          )
+        );
+        return;
+      }
+    }
+
     setState(() {
       _analyzing = true;
       _errorMsg = null;
@@ -179,6 +213,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         jobDescription: _jobDescController.text.trim(),
         resumes: _resumes,
       );
+      
+      if (_currentUser != null) {
+        await FirebaseService.incrementTokenUsage(_resumes.length);
+        _loadCurrentUser(); // Refresh local quota
+      }
+
       
       // Auto-shortlist candidates meeting the cutoff threshold
       for (var c in results) {
@@ -367,7 +407,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 
                 const SizedBox(width: 12),
+                if (_currentUser?.isAdmin == true) ...[
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.admin_panel_settings, size: 16),
+                    label: const Text('Admin Panel'),
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 const SizedBox(width: 12),
+                
+                // User Name
+                if (_currentUser != null)
+                  Text(
+                    FirebaseAuth.instance.currentUser?.displayName ?? _currentUser!.email.split('@').first,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF374151),
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                
                 // Avatar
                 Container(
                   width: 38,
@@ -387,6 +455,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   tooltip: 'Sign Out',
                   onPressed: () async {
                     await FirebaseAuth.instance.signOut();
+                    if (mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    }
                   },
                 ),
               ],
