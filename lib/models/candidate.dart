@@ -1,4 +1,5 @@
 class Candidate {
+  String? id;
   final String name;
   final String phone;
   final String email;
@@ -22,9 +23,10 @@ class Candidate {
   bool isShortlisted;
   String pipelineStatus;
   String? pdfPath;
-  List<int>? pdfBytes; // Note: Uint8List causes issues with json decoding without importing dart:typed_data, using List<int> instead
+  List<int>? pdfBytes;
 
   Candidate({
+    this.id,
     required this.name,
     required this.phone,
     required this.email,
@@ -48,7 +50,7 @@ class Candidate {
     this.pdfPath,
   });
 
-  factory Candidate.fromJson(Map<String, dynamic> json) {
+  factory Candidate.fromJson(Map<String, dynamic> json, [String? docId]) {
     int toInt(dynamic value) {
       if (value is int) return value;
       if (value is double) return value.round();
@@ -62,6 +64,7 @@ class Candidate {
     }
 
     return Candidate(
+      id: docId ?? json['id']?.toString(),
       name: (json['name'] ?? '').toString(),
       phone: (json['phone'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
@@ -84,5 +87,31 @@ class Candidate {
       pipelineStatus: (json['pipelineStatus'] ?? 'Not Contacted').toString(),
       pdfPath: json['pdfPath']?.toString(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'phone': phone,
+      'email': email,
+      'matchScore': matchScore,
+      'matchLabel': matchLabel,
+      'experience': experience,
+      'skills': skills,
+      'aiSummary': aiSummary,
+      'strengths': strengths,
+      'potentialGaps': potentialGaps,
+      'interviewQuestions': interviewQuestions,
+      'company': company,
+      'previousCompany': previousCompany,
+      'primaryExperienceTitle': primaryExperienceTitle,
+      'secondaryExperienceTitle': secondaryExperienceTitle,
+      'linkedin': linkedin,
+      'github': github,
+      'portfolio': portfolio,
+      'isShortlisted': isShortlisted,
+      'pipelineStatus': pipelineStatus,
+      'pdfPath': pdfPath,
+    };
   }
 }

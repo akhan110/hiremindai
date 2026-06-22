@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_service.dart';
+import '../services/firebase_service.dart';
 import 'dashboard_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -29,6 +30,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _loadSavedSettings() async {
+    try {
+      final settings = await FirebaseService.getUserSettings();
+      if (settings != null) {
+        setState(() {
+          _openAiController.text = settings['openai_key'] ?? '';
+          _claudeController.text = settings['claude_key'] ?? '';
+          _selectedProvider = settings['preferred_provider'] ?? 'OpenAI';
+          if (!_providers.contains(_selectedProvider)) {
+            _selectedProvider = 'OpenAI';
+          }
+        });
+        return;
+      }
+    } catch (e) {
+      // Ignored
+    }
+
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _openAiController.text = prefs.getString('openai_key') ?? '';
@@ -45,6 +63,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await prefs.setString('openai_key', _openAiController.text.trim());
     await prefs.setString('claude_key', _claudeController.text.trim());
     await prefs.setString('preferred_provider', _selectedProvider);
+
+    try {
+      await FirebaseService.saveUserSettings({
+        'openai_key': _openAiController.text.trim(),
+        'claude_key': _claudeController.text.trim(),
+        'preferred_provider': _selectedProvider,
+      });
+    } catch (e) {
+      // Ignored
+    }
   }
 
   String _getKeyForProvider(String provider) {

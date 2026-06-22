@@ -192,7 +192,7 @@ class _CandidatePoolScreenState extends State<CandidatePoolScreen> {
             candidate: candidate,
             selected: _selectedIndex == index,
             onTap: () => setState(() => _selectedIndex = index),
-          ),
+          ).animate(delay: (index * 50).ms).fadeIn(duration: 300.ms).slideX(begin: -0.1),
         );
       }).toList(),
     );

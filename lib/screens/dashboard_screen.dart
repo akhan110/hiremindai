@@ -7,6 +7,7 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/candidate.dart';
 import '../services/ai_service.dart';
+import '../services/firebase_service.dart';
 import '../widgets/candidate_card.dart';
 import 'candidate_pool_screen.dart';
 import 'pipeline_screen.dart';
@@ -80,6 +81,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       weightExperience: widget.weightExperience,
       weightCulture: widget.weightCulture,
     );
+    _loadCandidatesFromCloud();
+  }
+
+  Future<void> _loadCandidatesFromCloud() async {
+    try {
+      final candidates = await FirebaseService.getCandidates();
+      if (mounted) {
+        setState(() {
+          _candidates = candidates;
+        });
+      }
+    } catch (e) {
+      // Ignored for now
+    }
   }
 
   Future<void> _pickResumes() async {
@@ -157,7 +172,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _analyzing = true;
       _errorMsg = null;
-      _candidates = [];
     });
 
     try {
@@ -172,9 +186,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           c.isShortlisted = true;
           c.pipelineStatus = 'Not Contacted';
         }
+
+        // Upload PDF if present
+        if (c.pdfBytes != null && c.pdfPath != null) {
+          try {
+             final filename = c.pdfPath!.split('/').last.split('\\').last;
+             final url = await FirebaseService.uploadResumePdf(filename, c.pdfBytes!);
+             c.pdfPath = url;
+             c.pdfBytes = null; // Free memory
+          } catch(e) {
+             print('Failed to upload PDF: $e');
+          }
+        }
+        
+        // Save candidate to Firestore
+        try {
+           await FirebaseService.saveCandidate(c);
+        } catch(e) {
+           print('Failed to save to Firestore: $e');
+        }
       }
       
-      setState(() => _candidates = results);
+      setState(() => _candidates = [...results, ..._candidates]);
       
     } catch (e) {
       setState(() => _errorMsg = e.toString().replaceFirst('Exception: ', ''));
@@ -218,13 +251,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 1:
         body = CandidatePoolScreen(
           candidates: sortedCandidates,
-          onCandidateUpdated: (c) => setState(() {}),
+          onCandidateUpdated: (c) {
+            if (c.id != null) {
+              FirebaseService.updateCandidateStatus(c.id!, c.pipelineStatus, c.isShortlisted);
+            }
+            setState(() {});
+          },
         );
         break;
       case 2:
         body = PipelineScreen(
           candidates: sortedCandidates.where((c) => c.isShortlisted).toList(),
-          onCandidateUpdated: (c) => setState(() {}),
+          onCandidateUpdated: (c) {
+            if (c.id != null) {
+              FirebaseService.updateCandidateStatus(c.id!, c.pipelineStatus, c.isShortlisted);
+            }
+            setState(() {});
+          },
         );
         break;
       case 3:
@@ -762,7 +805,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           _expandedIndex = _expandedIndex == e.key ? null : e.key;
                         });
                       },
-                    ),
+                    ).animate(delay: (e.key * 50).ms).fadeIn(duration: 300.ms).slideY(begin: 0.1),
                   ),
           ],
         ),
