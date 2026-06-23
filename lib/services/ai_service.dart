@@ -71,40 +71,48 @@ abstract class BaseAIService implements AIService {
 
     final requirements = await extractJobRequirements(jobDescription);
 
-    final prelim = <_ScoredProfile>[];
-    for (final resume in resumes) {
+    final prelimFutures = resumes.map((resume) async {
       final fileName = resume['name'] ?? 'Candidate';
       final content = resume['content'] ?? '';
-      if (content.trim().isEmpty) continue;
+      if (content.trim().isEmpty) return null;
 
       final profile = await extractResumeProfile(fileName, content);
       final score = _localScore(requirements, profile);
-      prelim.add(_ScoredProfile(
+      return _ScoredProfile(
         fileName: fileName,
         profile: profile,
         score: score,
         path: resume['path'],
         bytes: resume['bytes'],
-      ));
-    }
+      );
+    });
+
+    final prelimResults = await Future.wait(prelimFutures);
+    final prelim = prelimResults.whereType<_ScoredProfile>().toList();
 
     prelim.sort((a, b) => b.score.compareTo(a.score));
 
-    final results = <Candidate>[];
+    final deepReviewFutures = <Future<Candidate>>[];
     for (var i = 0; i < prelim.length; i++) {
       final item = prelim[i];
       if (i < _topCandidatesForDeepReview) {
-        final candidate = await deepReview(requirements, item.profile, item.score);
-        candidate.pdfPath = item.path;
-        candidate.pdfBytes = item.bytes;
-        results.add(candidate);
+        deepReviewFutures.add(() async {
+          final candidate = await deepReview(requirements, item.profile, item.score);
+          candidate.pdfPath = item.path;
+          candidate.pdfBytes = item.bytes;
+          return candidate;
+        }());
       } else {
-        final candidate = _candidateFromProfile(item.profile, item.score);
-        candidate.pdfPath = item.path;
-        candidate.pdfBytes = item.bytes;
-        results.add(candidate);
+        deepReviewFutures.add(() async {
+          final candidate = _candidateFromProfile(item.profile, item.score);
+          candidate.pdfPath = item.path;
+          candidate.pdfBytes = item.bytes;
+          return candidate;
+        }());
       }
     }
+
+    final results = await Future.wait(deepReviewFutures);
 
     results.sort((a, b) => b.matchScore.compareTo(a.matchScore));
     return results;
