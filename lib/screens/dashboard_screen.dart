@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/candidate.dart';
 import '../services/ai_service.dart';
@@ -13,9 +14,8 @@ import 'candidate_pool_screen.dart';
 import 'pipeline_screen.dart';
 import 'ats_optimizer_screen.dart';
 import 'onboarding_screen.dart';
-import 'admin_dashboard_screen.dart';
-import 'login_screen.dart';
 import '../models/app_user.dart';
+import 'splash_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Map<String, String> apiKeys;
@@ -157,7 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _resumes.add({
           'name': name,
           'content': content,
-          'path': file.path,
+          'path': kIsWeb ? name : file.path,
           'bytes': file.bytes,
         });
 
@@ -407,21 +407,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 
                 const SizedBox(width: 12),
-                if (_currentUser?.isAdmin == true) ...[
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                    ),
-                    icon: const Icon(Icons.admin_panel_settings, size: 16),
-                    label: const Text('Admin Panel'),
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                ],
+
                 const SizedBox(width: 12),
                 
                 // User Name
@@ -454,11 +440,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: const Icon(Icons.logout, color: Color(0xFF6B7280)),
                   tooltip: 'Sign Out',
                   onPressed: () async {
-                    await FirebaseAuth.instance.signOut();
                     if (mounted) {
                       Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        MaterialPageRoute(builder: (_) => const SplashScreen()),
                         (route) => false,
                       );
                     }

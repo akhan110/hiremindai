@@ -76,7 +76,7 @@ abstract class BaseAIService implements AIService {
       final content = resume['content'] ?? '';
       if (content.trim().isEmpty) return null;
 
-      final profile = await extractResumeProfile(fileName, content);
+      final profile = _extractLocalProfile(fileName, content);
       final score = _localScore(requirements, profile);
       return _ScoredProfile(
         fileName: fileName,
@@ -84,6 +84,7 @@ abstract class BaseAIService implements AIService {
         score: score,
         path: resume['path'],
         bytes: resume['bytes'],
+        rawText: content,
       );
     });
 
@@ -92,35 +93,40 @@ abstract class BaseAIService implements AIService {
 
     prelim.sort((a, b) => b.score.compareTo(a.score));
 
-    final deepReviewFutures = <Future<Candidate>>[];
+    final results = <Candidate>[];
     for (var i = 0; i < prelim.length; i++) {
       final item = prelim[i];
       if (i < _topCandidatesForDeepReview) {
-        deepReviewFutures.add(() async {
-          final candidate = await deepReview(requirements, item.profile, item.score);
-          candidate.pdfPath = item.path;
-          candidate.pdfBytes = item.bytes;
-          return candidate;
-        }());
+        // Run sequentially to prevent rate limiting (429 errors)
+        final candidate = await deepReview(requirements, item.rawText, item.fileName, item.score);
+        candidate.pdfPath = item.path;
+        candidate.pdfBytes = item.bytes;
+        results.add(candidate);
       } else {
-        deepReviewFutures.add(() async {
-          final candidate = _candidateFromProfile(item.profile, item.score);
-          candidate.pdfPath = item.path;
-          candidate.pdfBytes = item.bytes;
-          return candidate;
-        }());
+        final candidate = _candidateFromProfile(item.profile, item.score);
+        candidate.pdfPath = item.path;
+        candidate.pdfBytes = item.bytes;
+        results.add(candidate);
       }
     }
-
-    final results = await Future.wait(deepReviewFutures);
 
     results.sort((a, b) => b.matchScore.compareTo(a.matchScore));
     return results;
   }
 
   Future<Map<String, dynamic>> extractJobRequirements(String jobDescription);
-  Future<Map<String, dynamic>> extractResumeProfile(String fileName, String resumeText);
-  Future<Candidate> deepReview(Map<String, dynamic> requirements, Map<String, dynamic> profile, double preliminaryScore);
+  Future<Candidate> deepReview(Map<String, dynamic> requirements, String resumeText, String fileName, double preliminaryScore);
+
+  Map<String, dynamic> _extractLocalProfile(String fileName, String content) {
+    return {
+      'name': fileName.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+      'skills': keywords(content).take(20).toList(),
+      'yearsExperience': 0, // Fallback locally, LLM will refine in deep review
+      'phone': '',
+      'email': '',
+      'highlights': <String>[],
+    };
+  }
 
   double _localScore(Map<String, dynamic> requirements, Map<String, dynamic> profile) {
     final requiredSkills = _stringList(requirements['requiredSkills']);
@@ -284,46 +290,7 @@ ${trim(jobDescription, 7000)}
   }
 
   @override
-  Future<Map<String, dynamic>> extractResumeProfile(String fileName, String resumeText) async {
-    final prompt = '''
-${customPrompt.isNotEmpty ? "CUSTOM RULES: $customPrompt\n" : ""}
-Extract this resume into compact candidate JSON. Return JSON only.
-Schema:
-{
-  "name": "string",
-  "phone": "string",
-  "email": "string",
-  "linkedin": "string",
-  "github": "string",
-  "portfolio": "string",
-  "yearsExperience": number,
-  "skills": ["string"],
-  "education": ["string"],
-  "recentTitles": ["string"],
-  "highlights": ["string"],
-  "evidence": ["short proof points from resume"]
-}
-Use the file name if the candidate name is not clear: $fileName
-Resume:
-${trim(resumeText, 9000)}
-''';
-    return await _chatJson(prompt, 1000, {
-      'name': fileName.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-      'phone': '',
-      'linkedin': '',
-      'github': '',
-      'portfolio': '',
-      'yearsExperience': 0,
-      'skills': keywords(resumeText).take(15).toList(),
-      'education': <String>[],
-      'recentTitles': <String>[],
-      'highlights': <String>[],
-      'evidence': <String>[],
-    });
-  }
-
-  @override
-  Future<Candidate> deepReview(Map<String, dynamic> requirements, Map<String, dynamic> profile, double preliminaryScore) async {
+  Future<Candidate> deepReview(Map<String, dynamic> requirements, String resumeText, String fileName, double preliminaryScore) async {
     final prompt = '''
 ${companyContext.isNotEmpty ? "COMPANY CONTEXT: You are hiring for $companyContext.\n" : ""}
 ${customPrompt.isNotEmpty ? "CUSTOM RULES: $customPrompt\n" : ""}
@@ -350,11 +317,13 @@ Required JSON:
 Use this preliminary local score as a calibration signal: ${preliminaryScore.round()}
 Job requirements JSON:
 ${jsonEncode(requirements)}
-Candidate profile JSON:
-${jsonEncode(profile)}
+Candidate Resume File Name: $fileName
+Candidate Resume Text:
+${trim(resumeText, 9000)}
 ''';
-    final json = await _chatJson(prompt, 900, _candidateJsonFromProfile(profile, preliminaryScore));
-    return Candidate.fromJson(normalizeCandidateJson(json, profile, preliminaryScore));
+    final fallbackProfile = _extractLocalProfile(fileName, resumeText);
+    final json = await _chatJson(prompt, 900, _candidateJsonFromProfile(fallbackProfile, preliminaryScore));
+    return Candidate.fromJson(normalizeCandidateJson(json, fallbackProfile, preliminaryScore));
   }
 
   Future<Map<String, dynamic>> _chatJson(String prompt, int maxTokens, Map<String, dynamic> fallback) async {
@@ -537,32 +506,7 @@ Job description: ${trim(jobDescription, 7000)}
   }
 
   @override
-  Future<Map<String, dynamic>> extractResumeProfile(String fileName, String resumeText) async {
-    final prompt = '''
-${customPrompt.isNotEmpty ? "CUSTOM RULES: $customPrompt\n" : ""}
-Extract this resume into compact candidate JSON. Return JSON only.
-Schema: {"name": "string", "phone": "string", "email": "string", "linkedin": "string", "github": "string", "portfolio": "string", "yearsExperience": number, "skills": ["string"], "education": ["string"], "recentTitles": ["string"], "highlights": ["string"], "evidence": ["string"]}
-File name: $fileName
-Resume: ${trim(resumeText, 9000)}
-''';
-    return await _chatJson(prompt, {
-      'name': fileName.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-      'phone': '',
-      'email': '',
-      'linkedin': '',
-      'github': '',
-      'portfolio': '',
-      'yearsExperience': 0,
-      'skills': keywords(resumeText).take(15).toList(),
-      'education': <String>[],
-      'recentTitles': <String>[],
-      'highlights': <String>[],
-      'evidence': <String>[],
-    });
-  }
-
-  @override
-  Future<Candidate> deepReview(Map<String, dynamic> requirements, Map<String, dynamic> profile, double preliminaryScore) async {
+  Future<Candidate> deepReview(Map<String, dynamic> requirements, String resumeText, String fileName, double preliminaryScore) async {
     final prompt = '''
 ${companyContext.isNotEmpty ? "COMPANY CONTEXT: You are hiring for $companyContext.\n" : ""}
 ${customPrompt.isNotEmpty ? "CUSTOM RULES: $customPrompt\n" : ""}
@@ -575,10 +519,12 @@ For "aiSummary", write a comprehensive, detailed paragraph (at least 4 to 5 sent
 Required JSON Schema: {"name": "string", "phone": "string", "email": "string", "matchScore": integer, "matchLabel": "STRONG MATCH" | "MODERATE MATCH" | "POTENTIAL", "experience": integer, "skills": ["string"], "aiSummary": "string", "strengths": ["string"], "potentialGaps": ["string"], "interviewQuestions": ["string"], "company": "string", "previousCompany": "string", "primaryExperienceTitle": "string", "secondaryExperienceTitle": "string"}
 Calibration local score: ${preliminaryScore.round()}
 Job requirements JSON: ${jsonEncode(requirements)}
-Candidate profile JSON: ${jsonEncode(profile)}
+Candidate Resume File Name: $fileName
+Candidate Resume Text: ${trim(resumeText, 9000)}
 ''';
-    final json = await _chatJson(prompt, _candidateJsonFromProfile(profile, preliminaryScore));
-    return Candidate.fromJson(normalizeCandidateJson(json, profile, preliminaryScore));
+    final fallbackProfile = _extractLocalProfile(fileName, resumeText);
+    final json = await _chatJson(prompt, _candidateJsonFromProfile(fallbackProfile, preliminaryScore));
+    return Candidate.fromJson(normalizeCandidateJson(json, fallbackProfile, preliminaryScore));
   }
 
   Future<Map<String, dynamic>> _chatJson(String prompt, Map<String, dynamic> fallback) async {
@@ -756,6 +702,7 @@ class _ScoredProfile {
   final double score;
   final String? path;
   final List<int>? bytes;
+  final String rawText;
 
   _ScoredProfile({
     required this.fileName,
@@ -763,5 +710,6 @@ class _ScoredProfile {
     required this.score,
     this.path,
     this.bytes,
+    required this.rawText,
   });
 }

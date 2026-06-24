@@ -521,9 +521,13 @@ class _PoolCandidateCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                   decoration: BoxDecoration(
-                    color: selected
-                        ? const Color(0xFF075BC7)
-                        : const Color(0xFFE5E7EB),
+                    color: candidate.score == 0
+                        ? const Color(0xFFEF4444) // Red for 0%
+                        : candidate.score >= 70
+                            ? const Color(0xFF10B981) // Green for >= 70%
+                            : selected
+                                ? const Color(0xFF075BC7)
+                                : const Color(0xFFE5E7EB),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -531,7 +535,9 @@ class _PoolCandidateCard extends StatelessWidget {
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
-                      color: selected ? Colors.white : const Color(0xFF4B5563),
+                      color: (candidate.score == 0 || candidate.score >= 70 || selected)
+                          ? Colors.white
+                          : const Color(0xFF4B5563),
                     ),
                   ),
                 ),
