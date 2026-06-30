@@ -17,8 +17,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // AI Providers
   final _openAiController = TextEditingController();
   final _claudeController = TextEditingController();
+  final _geminiController = TextEditingController();
   String _selectedProvider = 'OpenAI';
-  final List<String> _providers = ['OpenAI', 'Claude'];
+  final List<String> _providers = ['OpenAI', 'Claude', 'Gemini'];
   bool _obscure = true;
   bool _loading = false;
   String? _error;
@@ -36,6 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         setState(() {
           _openAiController.text = settings['openai_key'] ?? '';
           _claudeController.text = settings['claude_key'] ?? '';
+          _geminiController.text = settings['gemini_key'] ?? '';
           _selectedProvider = settings['preferred_provider'] ?? 'OpenAI';
           if (!_providers.contains(_selectedProvider)) {
             _selectedProvider = 'OpenAI';
@@ -51,6 +53,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() {
       _openAiController.text = prefs.getString('openai_key') ?? '';
       _claudeController.text = prefs.getString('claude_key') ?? '';
+      _geminiController.text = prefs.getString('gemini_key') ?? '';
       _selectedProvider = prefs.getString('preferred_provider') ?? 'OpenAI';
       if (!_providers.contains(_selectedProvider)) {
         _selectedProvider = 'OpenAI';
@@ -62,12 +65,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('openai_key', _openAiController.text.trim());
     await prefs.setString('claude_key', _claudeController.text.trim());
+    await prefs.setString('gemini_key', _geminiController.text.trim());
     await prefs.setString('preferred_provider', _selectedProvider);
 
     try {
       await FirebaseService.saveUserSettings({
         'openai_key': _openAiController.text.trim(),
         'claude_key': _claudeController.text.trim(),
+        'gemini_key': _geminiController.text.trim(),
         'preferred_provider': _selectedProvider,
       });
     } catch (e) {
@@ -78,6 +83,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _getKeyForProvider(String provider) {
     if (provider == 'OpenAI') return _openAiController.text.trim();
     if (provider == 'Claude') return _claudeController.text.trim();
+    if (provider == 'Gemini') return _geminiController.text.trim();
     return '';
   }
 
@@ -109,6 +115,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final apiKeys = {
         'OpenAI': _openAiController.text.trim(),
         'Claude': _claudeController.text.trim(),
+        'Gemini': _geminiController.text.trim(),
       };
 
       Navigator.of(context).pushReplacement(
@@ -255,6 +262,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     
                     _buildKeyInput('OpenAI API Key (Optional)', 'sk-...', _openAiController),
                     _buildKeyInput('Claude API Key (Optional)', 'sk-ant-...', _claudeController),
+                    _buildKeyInput('Gemini API Key (Optional)', 'AIzaSy...', _geminiController),
                     
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,

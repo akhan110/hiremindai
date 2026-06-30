@@ -26,6 +26,8 @@ class AIFactory {
     double weightCulture = 20,
   }) {
     switch (provider.toLowerCase()) {
+      case 'gemini':
+        return GeminiService(apiKey, customPrompt, companyContext, weightSkills, weightExperience, weightCulture);
       case 'claude':
         return ClaudeService(apiKey, customPrompt, companyContext, weightSkills, weightExperience, weightCulture);
       case 'openai':
@@ -712,4 +714,181 @@ class _ScoredProfile {
     this.bytes,
     required this.rawText,
   });
+}
+
+// ============================================================================
+// GEMINI SERVICE
+// ============================================================================
+class GeminiService extends BaseAIService {
+  GeminiService(
+    super.apiKey, 
+    super.customPrompt, 
+    super.companyContext, 
+    super.weightSkills, 
+    super.weightExperience, 
+    super.weightCulture
+  );
+
+  static const String _model = 'gemini-1.5-flash';
+
+  @override
+  Future<Map<String, dynamic>> extractJobRequirements(String jobDescription) async {
+    final prompt = '''
+Extract hiring requirements from this job description. Return JSON only.
+Schema: {"roleTitle": "string", "requiredSkills": ["string"], "niceToHaveSkills": ["string"], "responsibilities": ["string"], "minimumYearsExperience": number, "educationKeywords": ["string"]}
+Job description: ${trim(jobDescription, 7000)}
+''';
+    return await _chatJson(prompt, {
+      'roleTitle': 'Open Role',
+      'requiredSkills': keywords(jobDescription).take(12).toList(),
+      'niceToHaveSkills': <String>[],
+      'responsibilities': <String>[],
+      'minimumYearsExperience': 0,
+      'educationKeywords': <String>[],
+    });
+  }
+
+  @override
+  Future<Candidate> deepReview(Map<String, dynamic> requirements, String resumeText, String fileName, double preliminaryScore) async {
+    final prompt = '''
+${companyContext.isNotEmpty ? "COMPANY CONTEXT: You are hiring for $companyContext.\\n" : ""}
+${customPrompt.isNotEmpty ? "CUSTOM RULES: $customPrompt\\n" : ""}
+SCORING WEIGHTS: 
+- Technical Skills: $weightSkills%
+- Experience & Pedigree: $weightExperience%
+- Culture Fit & Soft Skills: $weightCulture%
+You are a precise recruiting assistant. Compare the compact candidate profile against the compact job requirements. Return ONE JSON object only.
+For "aiSummary", write a comprehensive, detailed paragraph (at least 4 to 5 sentences and 80 words) summarizing the candidate's background, core competencies, and overall fitness for the role.
+Required JSON Schema: {"name": "string", "phone": "string", "email": "string", "matchScore": integer, "matchLabel": "STRONG MATCH" | "MODERATE MATCH" | "POTENTIAL", "experience": integer, "skills": ["string"], "aiSummary": "string", "strengths": ["string"], "potentialGaps": ["string"], "interviewQuestions": ["string"], "company": "string", "previousCompany": "string", "primaryExperienceTitle": "string", "secondaryExperienceTitle": "string"}
+Calibration local score: ${preliminaryScore.round()}
+Job requirements JSON: ${jsonEncode(requirements)}
+Candidate Resume File Name: $fileName
+Candidate Resume Text: ${trim(resumeText, 9000)}
+''';
+    final fallbackProfile = _extractLocalProfile(fileName, resumeText);
+    final json = await _chatJson(prompt, _candidateJsonFromProfile(fallbackProfile, preliminaryScore));
+    return Candidate.fromJson(normalizeCandidateJson(json, fallbackProfile, preliminaryScore));
+  }
+
+  Future<Map<String, dynamic>> _chatJson(String prompt, Map<String, dynamic> fallback) async {
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$apiKey');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'contents': [
+          {'parts': [{'text': 'Return valid JSON only. No markdown.\\n$prompt'}]}
+        ],
+        'generationConfig': {
+          'temperature': 0.2,
+          'responseMimeType': 'application/json'
+        }
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Gemini Error: ${response.statusCode}');
+    }
+
+    try {
+      final data = jsonDecode(response.body);
+      final content = data['candidates'][0]['content']['parts'][0]['text'].toString();
+      final decoded = jsonDecode(cleanJson(content));
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {}
+    return fallback;
+  }
+
+  @override
+  Future<bool> validateApiKey() async {
+    try {
+      final response = await http.get(Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey'));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<String> optimizeJobDescription(String currentDesc) async {
+    if (currentDesc.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert technical recruiter. Please optimize and improve the following job description to make it professional, engaging, and clear. 
+Fix any typos, improve the formatting, and ensure it highlights the requirements well. Only return the improved job description text, nothing else.
+
+Current Job Description:
+$currentDesc
+''';
+    return await _generateText(prompt, currentDesc);
+  }
+
+  @override
+  Future<String> generateJobDescription(String rolePrompt) async {
+    if (rolePrompt.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert technical recruiter. Please generate a professional, engaging, and clear job description for the following role: "$rolePrompt".
+The job description should be about 6 to 7 lines long and include a brief overview, key responsibilities, and main requirements. 
+Return ONLY the job description text, nothing else.
+''';
+    final result = await _generateText(prompt, '');
+    if (result.isEmpty) throw Exception('Failed to generate job description.');
+    return result;
+  }
+
+  @override
+  Future<String> atsOptimizeResume({required String resumeText, required String jobDescription}) async {
+    if (resumeText.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert ATS (Applicant Tracking System) optimization assistant. 
+Rewrite the following resume so that it passes ATS systems with the highest possible match rate for the provided job description.
+Follow these rules strictly:
+1. Do not hallucinate or invent non-existent experience.
+2. Naturally integrate as many keywords from the job description as possible into the bullet points.
+3. Use clean, standard section headings (e.g., "Professional Experience", "Skills", "Education").
+4. Rephrase bullet points to be impact-driven (Action Verb + Context + Result) and align with the role's requirements.
+5. Return ONLY the rewritten resume content in clear Markdown formatting. Do not include any introductory or concluding conversational text.
+
+Target Job Description:
+${trim(jobDescription, 5000)}
+
+Original Resume:
+${trim(resumeText, 8000)}
+''';
+    final result = await _generateText(prompt, '');
+    if (result.isEmpty) throw Exception('Failed to optimize resume with Gemini.');
+    
+    String content = result;
+    if (content.startsWith('```markdown')) {
+      content = content.substring(11);
+    } else if (content.startsWith('```')) {
+      content = content.substring(3);
+    }
+    if (content.endsWith('```')) {
+      content = content.substring(0, content.length - 3);
+    }
+    return content.trim();
+  }
+
+  Future<String> _generateText(String prompt, String fallback) async {
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$apiKey');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'contents': [
+          {'parts': [{'text': prompt}]}
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+        }
+      }),
+    );
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        return data['candidates'][0]['content']['parts'][0]['text'].toString().trim();
+      } catch (_) {}
+    }
+    return fallback;
+  }
 }
