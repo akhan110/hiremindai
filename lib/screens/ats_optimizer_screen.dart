@@ -96,7 +96,7 @@ class _ATSOptimizerScreenState extends State<ATSOptimizerScreen> {
     } catch (e) {
       setState(() {
         _uploading = false;
-        _errorMsg = 'Failed to upload file: \$e';
+        _errorMsg = 'Failed to upload file: $e';
       });
     }
   }

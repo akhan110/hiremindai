@@ -577,7 +577,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _rolePromptController.clear();
                   }
                 } catch (e) {
-                  setState(() => _errorMsg = 'Failed to process: \$e');
+                  setState(() => _errorMsg = 'Failed to process: $e');
                 } finally {
                   setState(() => _optimizingJobDesc = false);
                 }

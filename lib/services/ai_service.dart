@@ -787,7 +787,7 @@ Candidate Resume Text: ${trim(resumeText, 9000)}
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Gemini Error: ${response.statusCode}');
+      throw Exception('Gemini Error ${response.statusCode}: ${response.body}');
     }
 
     try {
@@ -883,12 +883,13 @@ ${trim(resumeText, 8000)}
         }
       }),
     );
-    if (response.statusCode == 200) {
-      try {
-        final data = jsonDecode(response.body);
-        return data['candidates'][0]['content']['parts'][0]['text'].toString().trim();
-      } catch (_) {}
+    if (response.statusCode != 200) {
+      throw Exception('Gemini Error ${response.statusCode}: ${response.body}');
     }
+    try {
+      final data = jsonDecode(response.body);
+      return data['candidates'][0]['content']['parts'][0]['text'].toString().trim();
+    } catch (_) {}
     return fallback;
   }
 }
