@@ -30,6 +30,8 @@ class AIFactory {
         return GeminiService(apiKey, customPrompt, companyContext, weightSkills, weightExperience, weightCulture);
       case 'claude':
         return ClaudeService(apiKey, customPrompt, companyContext, weightSkills, weightExperience, weightCulture);
+      case 'openrouter':
+        return OpenRouterService(apiKey, customPrompt, companyContext, weightSkills, weightExperience, weightCulture);
       case 'openai':
       default:
         return OpenAIService(apiKey, customPrompt, companyContext, weightSkills, weightExperience, weightCulture);
@@ -893,3 +895,214 @@ ${trim(resumeText, 8000)}
     return fallback;
   }
 }
+
+// ============================================================================
+// OPENROUTER SERVICE
+// ============================================================================
+class OpenRouterService extends BaseAIService {
+  OpenRouterService(
+    super.apiKey, 
+    super.customPrompt, 
+    super.companyContext, 
+    super.weightSkills, 
+    super.weightExperience, 
+    super.weightCulture
+  );
+
+  static const String _baseUrl = 'https://openrouter.ai/api/v1';
+  static const String _model = 'anthropic/claude-3.5-sonnet';
+
+  @override
+  Future<Map<String, dynamic>> extractJobRequirements(String jobDescription) async {
+    final prompt = '''
+Extract hiring requirements from this job description. Return JSON only.
+Schema:
+{
+  "roleTitle": "string",
+  "requiredSkills": ["string"],
+  "niceToHaveSkills": ["string"],
+  "responsibilities": ["string"],
+  "minimumYearsExperience": number,
+  "educationKeywords": ["string"]
+}
+Job description:
+${trim(jobDescription, 7000)}
+''';
+    return await _chatJson(prompt, 900, {
+      'roleTitle': 'Open Role',
+      'requiredSkills': keywords(jobDescription).take(12).toList(),
+      'niceToHaveSkills': <String>[],
+      'responsibilities': <String>[],
+      'minimumYearsExperience': 0,
+      'educationKeywords': <String>[],
+    });
+  }
+
+  @override
+  Future<Candidate> deepReview(Map<String, dynamic> requirements, String resumeText, String fileName, double preliminaryScore) async {
+    final prompt = '''
+${companyContext.isNotEmpty ? "COMPANY CONTEXT: You are hiring for $companyContext.\\n" : ""}
+${customPrompt.isNotEmpty ? "CUSTOM RULES: $customPrompt\\n" : ""}
+SCORING WEIGHTS: 
+- Technical Skills: $weightSkills%
+- Experience & Pedigree: $weightExperience%
+- Culture Fit & Soft Skills: $weightCulture%
+You are a precise recruiting assistant. Compare the compact candidate profile against the compact job requirements.
+Return ONE JSON object only.
+Required JSON:
+{
+  "name": "string",
+  "phone": "string",
+  "email": "string",
+  "matchScore": integer 0-100,
+  "matchLabel": "STRONG MATCH" | "MODERATE MATCH" | "POTENTIAL",
+  "experience": integer,
+  "skills": ["top 4-6 relevant skills"],
+  "aiSummary": "A detailed paragraph of at least 4-5 sentences and 80 words summarizing fitness for role",
+  "strengths": ["3 strengths"],
+  "potentialGaps": ["2-3 gaps"],
+  "interviewQuestions": ["2 tailored questions"]
+}
+Use this preliminary local score as a calibration signal: ${preliminaryScore.round()}
+Job requirements JSON:
+${jsonEncode(requirements)}
+Candidate Resume File Name: $fileName
+Candidate Resume Text:
+${trim(resumeText, 9000)}
+''';
+    final fallbackProfile = _extractLocalProfile(fileName, resumeText);
+    final json = await _chatJson(prompt, 900, _candidateJsonFromProfile(fallbackProfile, preliminaryScore));
+    return Candidate.fromJson(normalizeCandidateJson(json, fallbackProfile, preliminaryScore));
+  }
+
+  Future<Map<String, dynamic>> _chatJson(String prompt, int maxTokens, Map<String, dynamic> fallback) async {
+    final response = await http.post(
+      Uri.parse('\$_baseUrl/chat/completions'),
+      headers: {
+        'Content-Type': 'application/json', 
+        'Authorization': 'Bearer \$apiKey',
+        'HTTP-Referer': 'https://hiremindai.com', // Needed for OpenRouter
+        'X-Title': 'HireMind AI' // Needed for OpenRouter
+      },
+      body: jsonEncode({
+        'model': _model,
+        'messages': [
+          {'role': 'system', 'content': 'Return valid JSON only. No markdown.'},
+          {'role': 'user', 'content': prompt},
+        ],
+        'temperature': 0.2,
+        'max_tokens': maxTokens,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('OpenRouter Error: \${response.statusCode} \${response.body}');
+    }
+
+    try {
+      final data = jsonDecode(response.body);
+      final content = data['choices'][0]['message']['content'].toString();
+      final decoded = jsonDecode(cleanJson(content));
+      if (decoded is Map<String, dynamic>) return decoded;
+    } catch (_) {}
+    return fallback;
+  }
+
+  @override
+  Future<bool> validateApiKey() async {
+    try {
+      // Validate by listing models or making a tiny request. The auth endpoint for openrouter is /auth/key
+      final response = await http.get(Uri.parse('https://openrouter.ai/api/v1/auth/key'), headers: {'Authorization': 'Bearer \$apiKey'});
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<String> optimizeJobDescription(String currentDesc) async {
+    if (currentDesc.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert technical recruiter. Please optimize and improve the following job description to make it professional, engaging, and clear. 
+Fix any typos, improve the formatting, and ensure it highlights the requirements well. Only return the improved job description text, nothing else.
+
+Current Job Description:
+\$currentDesc
+''';
+    return await _generateText(prompt);
+  }
+
+  @override
+  Future<String> generateJobDescription(String rolePrompt) async {
+    if (rolePrompt.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert technical recruiter. Please generate a professional, engaging, and clear job description for the following role: "\$rolePrompt".
+The job description should be about 6 to 7 lines long and include a brief overview, key responsibilities, and main requirements. 
+Return ONLY the job description text, nothing else.
+''';
+    final result = await _generateText(prompt);
+    if (result.isEmpty) throw Exception('Failed to generate job description.');
+    return result;
+  }
+
+  @override
+  Future<String> atsOptimizeResume({required String resumeText, required String jobDescription}) async {
+    if (resumeText.trim().isEmpty) return '';
+    final prompt = '''
+You are an expert ATS (Applicant Tracking System) optimization assistant. 
+Rewrite the following resume so that it passes ATS systems with the highest possible match rate for the provided job description.
+Follow these rules strictly:
+1. Do not hallucinate or invent non-existent experience.
+2. Naturally integrate as many keywords from the job description as possible into the bullet points.
+3. Use clean, standard section headings (e.g., "Professional Experience", "Skills", "Education").
+4. Rephrase bullet points to be impact-driven (Action Verb + Context + Result) and align with the role's requirements.
+5. Return ONLY the rewritten resume content in clear Markdown formatting. Do not include any introductory or concluding conversational text.
+
+Target Job Description:
+\${trim(jobDescription, 5000)}
+
+Original Resume:
+\${trim(resumeText, 8000)}
+''';
+    final result = await _generateText(prompt);
+    if (result.isEmpty) throw Exception('Failed to optimize resume with OpenRouter.');
+    
+    String content = result;
+    if (content.startsWith('```markdown')) {
+      content = content.substring(11);
+    } else if (content.startsWith('```')) {
+      content = content.substring(3);
+    }
+    if (content.endsWith('```')) {
+      content = content.substring(0, content.length - 3);
+    }
+    return content.trim();
+  }
+
+  Future<String> _generateText(String prompt) async {
+    final response = await http.post(
+      Uri.parse('\$_baseUrl/chat/completions'),
+      headers: {
+        'Content-Type': 'application/json', 
+        'Authorization': 'Bearer \$apiKey',
+        'HTTP-Referer': 'https://hiremindai.com', 
+        'X-Title': 'HireMind AI'
+      },
+      body: jsonEncode({
+        'model': _model,
+        'messages': [
+          {'role': 'user', 'content': prompt},
+        ],
+        'temperature': 0.7,
+      }),
+    );
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        return data['choices'][0]['message']['content'].toString().trim();
+      } catch (_) {}
+    }
+    return ''; // fallback
+  }
+}
+

@@ -18,8 +18,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _openAiController = TextEditingController();
   final _claudeController = TextEditingController();
   final _geminiController = TextEditingController();
+  final _openRouterController = TextEditingController();
   String _selectedProvider = 'OpenAI';
-  final List<String> _providers = ['OpenAI', 'Claude', 'Gemini'];
+  final List<String> _providers = ['OpenAI', 'Claude', 'Gemini', 'OpenRouter'];
   bool _obscure = true;
   bool _loading = false;
   String? _error;
@@ -38,6 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _openAiController.text = settings['openai_key'] ?? '';
           _claudeController.text = settings['claude_key'] ?? '';
           _geminiController.text = settings['gemini_key'] ?? '';
+          _openRouterController.text = settings['openrouter_key'] ?? '';
           _selectedProvider = settings['preferred_provider'] ?? 'OpenAI';
           if (!_providers.contains(_selectedProvider)) {
             _selectedProvider = 'OpenAI';
@@ -54,6 +56,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _openAiController.text = prefs.getString('openai_key') ?? '';
       _claudeController.text = prefs.getString('claude_key') ?? '';
       _geminiController.text = prefs.getString('gemini_key') ?? '';
+      _openRouterController.text = prefs.getString('openrouter_key') ?? '';
       _selectedProvider = prefs.getString('preferred_provider') ?? 'OpenAI';
       if (!_providers.contains(_selectedProvider)) {
         _selectedProvider = 'OpenAI';
@@ -66,6 +69,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await prefs.setString('openai_key', _openAiController.text.trim());
     await prefs.setString('claude_key', _claudeController.text.trim());
     await prefs.setString('gemini_key', _geminiController.text.trim());
+    await prefs.setString('openrouter_key', _openRouterController.text.trim());
     await prefs.setString('preferred_provider', _selectedProvider);
 
     try {
@@ -73,6 +77,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'openai_key': _openAiController.text.trim(),
         'claude_key': _claudeController.text.trim(),
         'gemini_key': _geminiController.text.trim(),
+        'openrouter_key': _openRouterController.text.trim(),
         'preferred_provider': _selectedProvider,
       });
     } catch (e) {
@@ -84,6 +89,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (provider == 'OpenAI') return _openAiController.text.trim();
     if (provider == 'Claude') return _claudeController.text.trim();
     if (provider == 'Gemini') return _geminiController.text.trim();
+    if (provider == 'OpenRouter') return _openRouterController.text.trim();
     return '';
   }
 
@@ -116,6 +122,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'OpenAI': _openAiController.text.trim(),
         'Claude': _claudeController.text.trim(),
         'Gemini': _geminiController.text.trim(),
+        'OpenRouter': _openRouterController.text.trim(),
       };
 
       Navigator.of(context).pushReplacement(
@@ -252,30 +259,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Enter your API keys to enable AI features. Your keys are stored locally on your device.',
+                      'Select your provider and enter your API key to enable AI features. Your keys are stored locally on your device.',
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: const Color(0xFF6B7280),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
-                    _buildKeyInput('OpenAI API Key (Optional)', 'sk-...', _openAiController),
-                    _buildKeyInput('Claude API Key (Optional)', 'sk-ant-...', _claudeController),
-                    _buildKeyInput('Gemini API Key (Optional)', 'AIzaSy...', _geminiController),
-                    
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text('Show Keys', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280))),
-                        Switch(
-                          value: !_obscure,
-                          onChanged: (v) => setState(() => _obscure = !v),
-                          activeTrackColor: const Color(0xFF1A56DB),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
                     
                     Text(
                       'Preferred AI Provider',
@@ -299,6 +289,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF111827)),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    if (_selectedProvider == 'OpenAI')
+                      _buildKeyInput('OpenAI API Key', 'sk-...', _openAiController),
+                    if (_selectedProvider == 'Claude')
+                      _buildKeyInput('Claude API Key', 'sk-ant-...', _claudeController),
+                    if (_selectedProvider == 'Gemini')
+                      _buildKeyInput('Gemini API Key', 'AIzaSy...', _geminiController),
+                    if (_selectedProvider == 'OpenRouter')
+                      _buildKeyInput('OpenRouter API Key', 'sk-or-v1-...', _openRouterController),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text('Show Key', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF6B7280))),
+                        Switch(
+                          value: !_obscure,
+                          onChanged: (v) => setState(() => _obscure = !v),
+                          activeTrackColor: const Color(0xFF1A56DB),
+                        ),
+                      ],
                     ),
                     
                     if (_error != null) ...[
