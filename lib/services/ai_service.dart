@@ -729,7 +729,7 @@ class GeminiService extends BaseAIService {
     super.weightCulture
   );
 
-  static const String _model = 'gemini-1.5-flash';
+  static const String _model = 'gemini-pro';
 
   @override
   Future<Map<String, dynamic>> extractJobRequirements(String jobDescription) async {
