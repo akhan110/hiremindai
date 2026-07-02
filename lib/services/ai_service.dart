@@ -910,7 +910,7 @@ class OpenRouterService extends BaseAIService {
   );
 
   static const String _baseUrl = 'https://openrouter.ai/api/v1';
-  static const String _model = 'anthropic/claude-3.5-sonnet';
+  static const String _model = 'meta-llama/llama-3-8b-instruct:free';
 
   @override
   Future<Map<String, dynamic>> extractJobRequirements(String jobDescription) async {
