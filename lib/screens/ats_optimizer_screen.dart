@@ -40,7 +40,7 @@ class _ATSOptimizerScreenState extends State<ATSOptimizerScreen> {
   void initState() {
     super.initState();
     final activeKey = widget.apiKeys[widget.provider] ?? '';
-    _aiService = AIFactory.getService(widget.provider, activeKey);
+    _aiService = OpenAIService(activeKey, '', '', 40, 40, 20);
     _loadCurrentUser();
   }
 

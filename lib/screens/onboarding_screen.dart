@@ -14,13 +14,7 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  // AI Providers
   final _openAiController = TextEditingController();
-  final _claudeController = TextEditingController();
-  final _geminiController = TextEditingController();
-  final _openRouterController = TextEditingController();
-  String _selectedProvider = 'OpenAI';
-  final List<String> _providers = ['OpenAI', 'Claude', 'Gemini', 'OpenRouter'];
   bool _obscure = true;
   bool _loading = false;
   String? _error;
@@ -37,13 +31,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (settings != null) {
         setState(() {
           _openAiController.text = settings['openai_key'] ?? '';
-          _claudeController.text = settings['claude_key'] ?? '';
-          _geminiController.text = settings['gemini_key'] ?? '';
-          _openRouterController.text = settings['openrouter_key'] ?? '';
-          _selectedProvider = settings['preferred_provider'] ?? 'OpenAI';
-          if (!_providers.contains(_selectedProvider)) {
-            _selectedProvider = 'OpenAI';
-          }
         });
         return;
       }
@@ -54,50 +41,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _openAiController.text = prefs.getString('openai_key') ?? '';
-      _claudeController.text = prefs.getString('claude_key') ?? '';
-      _geminiController.text = prefs.getString('gemini_key') ?? '';
-      _openRouterController.text = prefs.getString('openrouter_key') ?? '';
-      _selectedProvider = prefs.getString('preferred_provider') ?? 'OpenAI';
-      if (!_providers.contains(_selectedProvider)) {
-        _selectedProvider = 'OpenAI';
-      }
     });
   }
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('openai_key', _openAiController.text.trim());
-    await prefs.setString('claude_key', _claudeController.text.trim());
-    await prefs.setString('gemini_key', _geminiController.text.trim());
-    await prefs.setString('openrouter_key', _openRouterController.text.trim());
-    await prefs.setString('preferred_provider', _selectedProvider);
+    await prefs.setString('preferred_provider', 'OpenAI');
 
     try {
       await FirebaseService.saveUserSettings({
         'openai_key': _openAiController.text.trim(),
-        'claude_key': _claudeController.text.trim(),
-        'gemini_key': _geminiController.text.trim(),
-        'openrouter_key': _openRouterController.text.trim(),
-        'preferred_provider': _selectedProvider,
+        'preferred_provider': 'OpenAI',
       });
     } catch (e) {
       // Ignored
     }
   }
 
-  String _getKeyForProvider(String provider) {
-    if (provider == 'OpenAI') return _openAiController.text.trim();
-    if (provider == 'Claude') return _claudeController.text.trim();
-    if (provider == 'Gemini') return _geminiController.text.trim();
-    if (provider == 'OpenRouter') return _openRouterController.text.trim();
-    return '';
-  }
-
   Future<void> _finishSetup() async {
-    final activeKey = _getKeyForProvider(_selectedProvider);
+    final activeKey = _openAiController.text.trim();
 
     if (activeKey.isEmpty) {
-      setState(() => _error = 'Please enter an API key for $_selectedProvider.');
+      setState(() => _error = 'Please enter an OpenAI API key.');
       return;
     }
 
@@ -107,10 +73,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     });
 
     try {
-      final service = AIFactory.getService(_selectedProvider, activeKey);
+      final service = OpenAIService(activeKey, '', '', 40, 40, 20);
       final valid = await service.validateApiKey();
       if (!valid) {
-        setState(() => _error = 'Invalid API key for $_selectedProvider. Please check and try again.');
+        setState(() => _error = 'Invalid OpenAI API key. Please check and try again.');
         return;
       }
 
@@ -119,17 +85,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (!mounted) return;
       
       final apiKeys = {
-        'OpenAI': _openAiController.text.trim(),
-        'Claude': _claudeController.text.trim(),
-        'Gemini': _geminiController.text.trim(),
-        'OpenRouter': _openRouterController.text.trim(),
+        'OpenAI': activeKey,
       };
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => DashboardScreen(
             apiKeys: apiKeys,
-            provider: _selectedProvider,
+            provider: 'OpenAI',
             customPrompt: '',
             shortlistCutoff: 75,
             companyName: '',
@@ -145,51 +108,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  Widget _buildKeyInput(String label, String hint, TextEditingController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF374151),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          obscureText: _obscure,
-          style: GoogleFonts.robotoMono(fontSize: 14),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: GoogleFonts.robotoMono(
-              color: const Color(0xFFD1D5DB),
-              fontSize: 14,
-            ),
-            filled: true,
-            fillColor: const Color(0xFFF9FAFB),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF1A56DB), width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
   }
 
   @override
@@ -250,7 +168,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AI Providers',
+                      'AI Provider',
                       style: GoogleFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -259,47 +177,51 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Select your provider and enter your API key to enable AI features. Your keys are stored locally on your device.',
+                      'Enter your OpenAI API key to enable AI features. Your key is stored locally on your device.',
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: const Color(0xFF6B7280),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     Text(
-                      'Preferred AI Provider',
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF374151)),
+                      'OpenAI API Key',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedProvider,
-                          isExpanded: true,
-                          items: _providers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                          onChanged: (v) => setState(() => _selectedProvider = v!),
-                          style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF111827)),
+                    TextField(
+                      controller: _openAiController,
+                      obscureText: _obscure,
+                      style: GoogleFonts.robotoMono(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'sk-...',
+                        hintStyle: GoogleFonts.robotoMono(
+                          color: const Color(0xFFD1D5DB),
+                          fontSize: 14,
                         ),
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF1A56DB), width: 1.5),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
                     ),
-                    const SizedBox(height: 24),
-
-                    if (_selectedProvider == 'OpenAI')
-                      _buildKeyInput('OpenAI API Key', 'sk-...', _openAiController),
-                    if (_selectedProvider == 'Claude')
-                      _buildKeyInput('Claude API Key', 'sk-ant-...', _claudeController),
-                    if (_selectedProvider == 'Gemini')
-                      _buildKeyInput('Gemini API Key', 'AIzaSy...', _geminiController),
-                    if (_selectedProvider == 'OpenRouter')
-                      _buildKeyInput('OpenRouter API Key', 'sk-or-v1-...', _openRouterController),
+                    const SizedBox(height: 16),
                     
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,

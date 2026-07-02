@@ -76,14 +76,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     final activeKey = widget.apiKeys[widget.provider] ?? '';
-    _aiService = AIFactory.getService(
-      widget.provider, 
+    _aiService = OpenAIService(
       activeKey, 
-      customPrompt: widget.customPrompt,
-      companyContext: '${widget.companyName} (${widget.companyIndustry})',
-      weightSkills: widget.weightSkills,
-      weightExperience: widget.weightExperience,
-      weightCulture: widget.weightCulture,
+      widget.customPrompt,
+      '${widget.companyName} (${widget.companyIndustry})',
+      widget.weightSkills,
+      widget.weightExperience,
+      widget.weightCulture,
     );
     _loadCandidatesFromCloud();
     _loadCurrentUser();
